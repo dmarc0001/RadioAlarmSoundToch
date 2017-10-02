@@ -10,6 +10,7 @@ import signal
 import re
 import socket
 import json
+from config_files_obj import ConfigFileObj
 
 """
 Modul implementiert einen UDP Server welcher auf einem Port auf Verbindungen lauscht unf Kommandos 
@@ -153,22 +154,28 @@ class RadioCommandServer(Thread):
                 # bei all geht es schnell
                 response = None
                 try:
+                    ConfigFileObj.config_lock.acquire()
                     response = json.dumps(self.config).encode(encoding='utf-8')
                 finally:
+                    ConfigFileObj.config_lock.release()
                     return response
             elif 'all' in sitem:
                 # bei all nur die alarme, nicht global
+                ConfigFileObj.config_lock.acquire()
                 for section in self.config:
                     if re.match(match_pattern, section):
                         if self.config[section] is not None:
                             _answers[section] = self.config[section]
+                ConfigFileObj.config_lock.release()
                 # Alle verfügbaren eingefügt
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
                 self.log.debug("*** found: {} ***".format(sitem))
+                ConfigFileObj.config_lock.acquire()
                 if self.config[sitem] is not None:
                     self.log.debug("*** add: {} ***".format(sitem))
                     _answers[sitem] = self.config[sitem]
+                ConfigFileObj.config_lock.release()
             else:
                 self.log.warning("get command not implemented or none alerts match request")
                 return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(encoding='utf-8')
@@ -199,7 +206,9 @@ class RadioCommandServer(Thread):
                 if al_command == 'enable':
                     # einen alarm erlauben oder verbieten
                     self.log.debug( "change enable state for alert {} to {}".format(alert_name, sitem[al_command]))
+                    ConfigFileObj.config_lock.acquire()
                     self.config[alert_name][al_command] = sitem[al_command]
+                    ConfigFileObj.config_lock.release()
                 else:
                     self.log.warning("set al_command {} not implemented yet".format(al_command))
                     return json.dumps({'error': 'unknown set al_command {}...'.format(al_command)}).encode(encoding='utf-8')
@@ -223,9 +232,11 @@ class RadioCommandServer(Thread):
         :return:
         """
         # Guck mal ob das passt
+        ConfigFileObj.config_lock.acquire()
         if int(self.config['global']['server_port']) < 1024:
             self.log.error("not an valid port configured, no udp server startet! Program end...")
             self.is_running = False
+            ConfigFileObj.config_lock.release()
             return False
         else:
             self.log.debug("UDP server on addr: %s:%s" % (
@@ -239,8 +250,10 @@ class RadioCommandServer(Thread):
             except OSError as msg:
                 self.log.fatal("exception while socket binding: %s, ABORT!" % msg)
                 self.is_running = False
+                ConfigFileObj.config_lock.release()
                 return False
             self.log.info("try to make udp server socket...OK")
+            ConfigFileObj.config_lock.release()
             return True
             # fertig
 
@@ -258,14 +271,20 @@ class RadioCommandServer(Thread):
                 self.log.debug("close udp socket...OK")
         return None
 
-    def set_config(self, _config):
-        """
-        Setze eine neue Configuration, falls notwendig
-        :param _config:
-        :return:
-        """
-        sleep(1)
-        self.config = _config
+    # def set_config(self, _config):
+    #     """
+    #     Setze eine neue Configuration, falls notwendig
+    #     :param _config:
+    #     :return:
+    #     """
+    #     sleep(.4)
+    #     ConfigFileObj.config_lock.acquire()
+    #     for section in self.config:
+    #         del self.config[section]
+    #     for section in _config:
+    #         self.config[section] = _config[section]
+    #     ConfigFileObj.config_lock.release()
+    #     sleep(.2)
 
 
 def main():

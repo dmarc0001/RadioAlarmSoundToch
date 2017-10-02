@@ -24,6 +24,7 @@ class RadioAlerts:
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
+        self.al_working = False # alarm spielt gerade
         self.al_enable = True
         self.al_weekdays = None
         self.al_volume = 0
@@ -36,6 +37,7 @@ class RadioAlerts:
         self.al_type = None
         self.al_devices = []
         self.al_note = None
+        self.al_alert_thread = None  # wenn self.al_working dann hier der Thread
         #
         self.log.debug("RadioAlerts is instantiating...")
         #
@@ -211,6 +213,22 @@ class RadioAlerts:
     @staticmethod
     def str2bool(_val: str):
         return _val.lower() in ('yes', 'true', 't', '1')
+
+    @property
+    def alert_thread(self):
+        return self.al_alert_thread
+
+    @alert_thread.setter
+    def alert_thread(self, _alert_thread):
+        self.alert_thread = _alert_thread
+
+    @property
+    def alert_working(self):
+        return self.al_working
+
+    @alert_working.setter
+    def alert_working(self, _is_working: bool):
+        self.al_working = _is_working
 
     @property
     def alert_duration(self):

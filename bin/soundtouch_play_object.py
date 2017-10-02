@@ -81,6 +81,8 @@ class SoundtouchPlayObject(Thread):
             self.master_device.set_volume(0)
             for slave in self.slave_devices:
                 slave.set_volume(0)
+        # vorbereitung ist vorbei...
+        self.alert.alert_prepairing = False
         #
         # setze die zeit, wann der Alarm ausgeschaltet wird
         #
@@ -115,6 +117,8 @@ class SoundtouchPlayObject(Thread):
         # aussschalten
         #
         self.power_off()
+        self.alert.alert_thread = None
+        self.alert.self.al_working = False
         sleep(.6)
         #
         # noch eine Lautstärke einstellen für nächstes Einschalten

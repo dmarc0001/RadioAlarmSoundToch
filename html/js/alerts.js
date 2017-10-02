@@ -9,10 +9,8 @@ var regexTrue = /true|yes|1|on/;
 var timerId = null;
 
 //
-// Wenn die GUI geladen ist, ausühren
+// jQuery Mobile: wenn PAGE geänder ist, ausführen...
 //
-//$(document).ready(initiate);
-
 $(document).on('pagecontainershow', changePageAction);
 
 //
@@ -116,8 +114,9 @@ function initIndexPage()
   console.log("init events for sigle alerts...OK");
 }
 
-
-
+//
+// Starte / Restarte den Refresh Timer für die INDEX Page
+//
 function startRefreshTimer()
 {
   console.debug("initialize autorefresh timer...");
@@ -143,6 +142,9 @@ function startRefreshTimer()
   }  
 }
 
+//
+// Stoppe den Refresh Timer für dei INDEX Seite
+//
 function stopRefreshTimer()
 {
   if (timerId != null)
@@ -270,7 +272,7 @@ function setStatusDataFunc(data)
 
 //
 // regelmäßiges Update der Slider für die alerts
-// (kan ja auch von anderem Clienten verändert werden)
+// (kann ja auch von anderem Clienten verändert werden)
 //
 function timerFunc()
 {
@@ -295,7 +297,7 @@ function timerFunc()
 }
 
 //
-// die AJAX "success" Funktion wen Statusdaten empfangen wurden
+// die AJAX "success" Funktion wenn Statusdaten empfangen wurden
 //
 function recStatusDataFunc(data)
 {
@@ -323,10 +325,43 @@ function recStatusDataFunc(data)
         console.debug("recived status: '" + alert_name + "' found. Checkk for update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
         updateAlertSlider(alert_name, alertProps);
+        updateAlertTimeStamp(alert_name, alertProps);
       }
     }
   );
   console.debug("recived data from statusrequest...DONE.")
+}
+
+//
+// setze oder ändere Weckzeit
+//
+function updateAlertTimeStamp(alert_name, propertys)
+{
+  // welcher Eintrag ist es
+  console.info("alert_name: " + alert_name + ", elem: " + alert_name.replace('alert', 'times'));
+  var currAlertTimeElem = $('div#' + alert_name.replace('alert', 'times'));
+  var currAlertDateElem = $('div#' + alert_name.replace('alert', 'once'));
+
+  //
+  // so, jetzt überlegen was passieren soll
+  // Zeit...
+  //
+  if( currAlertTimeElem.html() != propertys['alert_time'])
+  {
+    // ok, ich verändere den Wert mal
+    console.info("alert_time_name: " + alert_name + ", change content from : " + currAlertTimeElem.html() + " to : " + propertys['alert_time']);
+    currAlertTimeElem.text(propertys['alert_time']);
+  }
+  //
+  // Datum
+  //
+  if( currAlertDateElem.html() != propertys['alert_date'])
+  {
+    // ok, ich verändere den Wert mal
+    console.info("alert_date_name: " + alert_name + ", change content from : " + currAlertDateElem.html() + " to : " + propertys['alert_date']);
+    currAlertDateElem.text(propertys['alert_date']);
+  }
+
 }
 
 //
@@ -343,12 +378,7 @@ function updateAlertSlider(alert_name, propertys)
   //
   // wenn enable verändert ist
   //
-  if (currSlider.is(':checked') == alarmIsActive)
-  {
-    // Kein Handlungsbedarf
-    console.debug("switch for " + alert_name + " was not changed.");
-  }
-  else
+  if (currSlider.is(':checked') != alarmIsActive)
   {
     console.log("switch for " + alert_name + " was changed, trigger switch...");
     ignoreTrigger = true

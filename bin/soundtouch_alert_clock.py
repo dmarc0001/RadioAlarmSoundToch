@@ -11,6 +11,8 @@ from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
 from udp_server_thread import RadioCommandServer
 from libsoundtouch import discover_devices
+from soundtouch_play_object import SoundtouchPlayObject
+
 
 __author__ = 'Dirk Marciniak'
 __copyright__ = 'Copyright 2017'
@@ -118,21 +120,30 @@ class SoundTouchAlertClock:
                 for c_alert in self.alerts:
                     # wiel lange / kein Alarm
                     time_to_alert = c_alert.sec_to_alert(3, 10)
-                    if time_to_alert is not None and not c_alert.alert_prepeairing():
+                    if time_to_alert is not None and not c_alert.alert_prepeairing:
                         # der Alarm naht und ist noch nicht vorbereitet
                         # gib bescheid: wird vorbereitet
-                        c_alert.alert_prepeairing(True)
+                        c_alert.alert_prepeairing = True
                         self.log.debug("alert in {} sec detected".format(time_to_alert))
                         # versuche eine Liste mit den Zielgeräten zu bekommen
                         alert_devices = self.__are_devices_availvible(c_alert.alert_devices)
                         if len(alert_devices) == 0:
                             # keine Gerätre gefunden => Alarm abblasen
                             self.log.fatal("no devices for playing alert found! Alert abort")
-                            c_alert.alert_prepeairing(False)
-                            c_alert.alert_done(True)
+                            c_alert.alert_prepeairing = False
+                            c_alert.alert_done = True
                             continue
                         # ok, geräte sind bereit
                         #
+                        if c_alert.alert_working:
+                            self.log.warning("this alert is working... not mak an new alert this time")
+                            continue
+                        # erzeuge einen Weckerthread
+                        play_alert = SoundtouchPlayObject(self.log, alert_devices, c_alert)
+                        c_alert.alert_working = True
+                        c_alert.alert_thread = play_alert
+                        play_alert.start()
+                        # TODO: gelegentlich prüfen...
             else:
                 # ein Alarm läuft, prüfe ob er beendet ist
                 pass
@@ -254,6 +265,7 @@ class SoundTouchAlertClock:
         else:
             self.config_read_obj.read_configfile(self.config_file)
         self.config = self.config_read_obj.config_object
+        ConfigFileObj.config_lock.acquire()
         #######################################################################
         # DEFAULT                                                             #
         #######################################################################
@@ -305,14 +317,18 @@ class SoundTouchAlertClock:
                 continue
             # es ist ein alert...
             self.log.debug("create RadioAlerts {}...".format(section))
+            ConfigFileObj.config_lock.release()
             alert = RadioAlerts(self.log, self.config[section])
+            ConfigFileObj.config_lock.acquire()
             self.alerts.append(alert)
             self.log.debug("create RadioAlerts {}...OK".format(section))
+        ConfigFileObj.config_lock.release()
         #
         # thread mit neuer config versorgen
         #
-        if self.udp_serverthread is not None:
-            self.udp_serverthread.set_config(self.config)
+        # Nee, config ist per referenz übergeben
+        #if self.udp_serverthread is not None:
+        #    self.udp_serverthread.set_config(self.config)
         # ENDE
 
     @staticmethod

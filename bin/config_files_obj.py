@@ -9,18 +9,20 @@ import json
 import hashlib
 import os
 import re
+from threading import Lock
 
 config_file = '../config/alert.ini'
 
 
 class ConfigFileObj:
     enclosing_dquotes = re.compile(r"(^\"|\"$)")
+    config_lock = Lock()
 
     def __init__(self, _log: logging.Logger, _file_name: str):
         self.log = _log
         self.config_file = _file_name
         self.config_modify_time = None
-        self.config = None
+        self.config = dict()
         self.dict_hash = None
         if self.log is not None:
             self.log.info("read config file {}...".format(self.config_file))
@@ -43,7 +45,7 @@ class ConfigFileObj:
         :param _file_name:
         :return:
         """
-        config = dict()
+        new_config = dict()
         self.config_file = _file_name
 
         # merke mir die Bearbeitungszeit
@@ -68,8 +70,15 @@ class ConfigFileObj:
                 else:
                     print("  [{}] => '{}' = '{}'".format(section, name, val))
                 c_items[name] = val
-                config[section] = c_items
-        return config
+                new_config[section] = c_items
+        ConfigFileObj.config_lock.acquire()
+        seclist = list(self.config.keys())
+        for section in seclist:
+            del self.config[section]
+        for section in new_config:
+            self.config[section] = new_config[section]
+        ConfigFileObj.config_lock.release()
+        return self.config
 
     @staticmethod
     def __get_hashstr(_config_object: dict):
@@ -97,7 +106,9 @@ class ConfigFileObj:
         else:
             print("write_config_file...")
         if not _force:
+            ConfigFileObj.config_lock.acquire()
             curr_hash = self.__get_hashstr(self.config)
+            ConfigFileObj.config_lock.release()
             if self.log is not None:
                 self.log.info("HASH curr: {}".format(curr_hash))
                 self.log.info("HASH orig: {}".format(self.dict_hash))
@@ -110,12 +121,14 @@ class ConfigFileObj:
         #
         parser = ConfigParser()
         # das config-objekct wieder in ein parserobj konvertieren
+        ConfigFileObj.config_lock.acquire()
         for section in sorted(self.config):
             if self.log is not None:
                 self.log.debug("create section [{}]...".format(section))
             else:
                 print("create section [{}]...".format(section))
             parser[section] = self.config[section]
+        ConfigFileObj.config_lock.release()
         #
         # datei schreiben, zuerst alte umbenennen
         #
@@ -149,7 +162,7 @@ class ConfigFileObj:
 
     @property
     def config_object(self):
-        return self.config
+            return self.config
 
 
 def main():
