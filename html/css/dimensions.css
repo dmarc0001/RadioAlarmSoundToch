@@ -1,0 +1,55 @@
+/* 
+  jQueryMobile:
+  alle Gitter bei 40 em stapeln 
+*/
+
+/* Linke Spalte der Anzeige (label) */
+div.leftcol
+{
+  float: left;
+  clear: left;
+  width: 7em;
+  /*background-color: yellow;*/
+}
+
+/* rechte Seite der Anzeige (value) */
+div.rightcol, input.rightcol
+{
+  float: left;
+  width: 8em;
+  padding-left: 1em;
+  /*background-color: green;*/
+}
+
+/* Ränder der Anzeige */
+div.leftcol, div.rightcol
+{
+  margin-top: 2px;
+  margin-bottom: 0px;
+}
+
+/* Begrenzungslinie länge einstellen */
+hr.alert-border
+{
+  width: 96.5%;
+}
+
+.ui-dialog-contain {
+	width: 92.5%;
+	max-width: 600px;
+	margin: 10% auto 15px auto;
+	padding: 0;
+	position: relative;
+	top: -15px;
+}
+
+@media all and (max-width: 35em) {
+  .my-breakpoint .ui-block-a,
+  .my-breakpoint .ui-block-b, 
+  .my-breakpoint .ui-block-c, 
+  .my-breakpoint .ui-block-d, 
+  .my-breakpoint .ui-block-e {
+    width: 100%;
+    float: none;
+  } 
+}
