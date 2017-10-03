@@ -102,9 +102,7 @@ class ConfigFileObj:
         TODO: Eigentümer zu www-data setzten
         """
         if self.log is not None:
-            self.log.debug("write_config_file...")
-        else:
-            print("write_config_file...")
+            self.log.debug("called write_config_file...")
         if not _force:
             ConfigFileObj.config_lock.acquire()
             curr_hash = self.__get_hashstr(self.config)

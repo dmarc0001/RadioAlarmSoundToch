@@ -126,8 +126,8 @@
     $progConfigObject = json_decode( $response, true );
 ?>
   <body>
-    <input type="hidden" id="autorefresh" value="<?php echo getAutoRefresh($configObject); ?>" /> 
     <div data-role="page" id="index-page" data-theme="<?php echo $configObject['gui_theme']; ?>" >
+      <input type="hidden" id="autorefresh" value="<?php echo getAutoRefresh($configObject); ?>" /> 
 
       <div data-role="header">
         <!-- /header -->

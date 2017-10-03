@@ -104,7 +104,7 @@ class SoundtouchPlayObject(Thread):
             self.log.debug("volume is ok, wait for alarm end...")
         #
         # Spielen, bis der Alarm zuende ist
-        #
+        # TODO: callback via websocket bei power off oder senderwechsel alarm für das Gerät beenden
         while self.is_playing and __time_to_off > int(time()):
             sleep(.5)
             self.log.debug("wait now: {} to:{} diff {}".format(int(time()), __time_to_off, __time_to_off - int(time())))

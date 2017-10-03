@@ -220,7 +220,7 @@ class RadioAlerts:
 
     @alert_thread.setter
     def alert_thread(self, _alert_thread):
-        self.alert_thread = _alert_thread
+        self.al_alert_thread = _alert_thread
 
     @property
     def alert_working(self):

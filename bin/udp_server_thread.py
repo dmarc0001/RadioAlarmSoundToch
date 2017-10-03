@@ -29,7 +29,7 @@ class RadioCommandServer(Thread):
     Objekt zur Kommunikation zwischen den Programmen des Webserver und dem Daeomon für die Radios
     """
 
-    def __init__(self, _log: logging.Logger, _config: dict = None):
+    def __init__(self, _log: logging.Logger, _config: dict = None, _devices_callback = None ):
         """
         Der Konstruktor des Thread
         :param _log: logobjekt
@@ -39,6 +39,7 @@ class RadioCommandServer(Thread):
         self.lock = Lock()
         self.log = _log
         self.config = _config
+        self.available_devices_callback = _devices_callback
         self.s_socket = None
         self.on_config_change = None
         self.is_running = False
@@ -168,6 +169,18 @@ class RadioCommandServer(Thread):
                             _answers[section] = self.config[section]
                 ConfigFileObj.config_lock.release()
                 # Alle verfügbaren eingefügt
+            elif 'devices' in sitem:
+                # alle verfügbaren Geräte finden und melden
+                _devices = self.available_devices_callback()
+                if _devices is not None:
+                    for device in _devices:
+                        # für jedes Gerät einen Datensatz machen
+                        dev_info = dict()
+                        dev_info['name'] = device.config.name
+                        dev_info['type'] = device.config.type
+                        dev_info['host'] = device.host
+                        _answers[device.config.name] = dev_info
+                    del _devices
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
                 self.log.debug("*** found: {} ***".format(sitem))
@@ -270,21 +283,6 @@ class RadioCommandServer(Thread):
             finally:
                 self.log.debug("close udp socket...OK")
         return None
-
-    # def set_config(self, _config):
-    #     """
-    #     Setze eine neue Configuration, falls notwendig
-    #     :param _config:
-    #     :return:
-    #     """
-    #     sleep(.4)
-    #     ConfigFileObj.config_lock.acquire()
-    #     for section in self.config:
-    #         del self.config[section]
-    #     for section in _config:
-    #         self.config[section] = _config[section]
-    #     ConfigFileObj.config_lock.release()
-    #     sleep(.2)
 
 
 def main():

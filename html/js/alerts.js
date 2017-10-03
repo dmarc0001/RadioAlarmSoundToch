@@ -15,6 +15,7 @@ $(document).on('pagecontainershow', changePageAction);
 
 //
 // Funktion regelt (wegen des Seiten/DOM Caching von JQuery) die Scripte
+// aktiviert die aktuelle und deaktiviert die andere(n) scriptteile
 //
 function changePageAction(event, ui)
 {
@@ -51,7 +52,6 @@ function changePageAction(event, ui)
     // auf der EDIT Seite (Dialog) ein paar Sachen aufräumen
     console.debug("deactivate any things on the edit page...");
   }
-
   //
   // Jetzt die Sachen erledigen, wenn ich die Seite betreten habe
   //
@@ -73,27 +73,14 @@ function changePageAction(event, ui)
     // auf der EDIT Seite (Dialog) ein paar Sachen aktivieren
     console.debug("deactivate any things on the edit page...");
     initEditPage();
-  }
-  
+  } 
 }
 
-//
-// initialisiere die EDIT Page
-//
-function initEditPage()
-{
-  console.debug("init edit page bindings...");
-  $('input:text#date-picker').bind('datebox', function (e, passed)
-  {
-    console.debug('New Date Shown: ' + passed.shownDate);
-    console.debug('Date Selected: ' + passed.selectedDate);
-  });
-  $('input:text#time-picker').bind('datebox', function (e, passed)
-  {
-    console.debug('New Date Shown: ' + passed.shownDate);
-    console.debug('Date Selected: ' + passed.selectedDate);
-  });
-}
+/*#############################################################################
+####                                                                       ####
+#### INDEX Page für ALARME                                                 ####
+####                                                                       ####
+#############################################################################*/
 
 //
 // initialisiere die INDEX Page
@@ -307,10 +294,8 @@ function recStatusDataFunc(data)
   // Ebene 2 == key: Wertename: value: Wert
   //
   console.debug("recived data from statusrequest...")
-  // prüfe für alle Kanäle, ob da noch was im transfer ist
-  var isInTransfer = false;
   //
-  // zunächst ebene 1 durchlaufen, die Kanalnamen
+  // zunächst ebene 1 durchlaufen, die Alarmnamen
   //
   $.each(data,
     // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
@@ -322,7 +307,7 @@ function recStatusDataFunc(data)
       }
       else
       {
-        console.debug("recived status: '" + alert_name + "' found. Checkk for update...");
+        console.debug("recived status: '" + alert_name + "' found. Check for update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
         updateAlertSlider(alert_name, alertProps);
         updateAlertTimeStamp(alert_name, alertProps);
@@ -333,7 +318,7 @@ function recStatusDataFunc(data)
 }
 
 //
-// setze oder ändere Weckzeit
+// setze oder ändere in der INDEX GUI
 //
 function updateAlertTimeStamp(alert_name, propertys)
 {
@@ -341,7 +326,6 @@ function updateAlertTimeStamp(alert_name, propertys)
   console.info("alert_name: " + alert_name + ", elem: " + alert_name.replace('alert', 'times'));
   var currAlertTimeElem = $('div#' + alert_name.replace('alert', 'times'));
   var currAlertDateElem = $('div#' + alert_name.replace('alert', 'once'));
-
   //
   // so, jetzt überlegen was passieren soll
   // Zeit...
@@ -361,11 +345,10 @@ function updateAlertTimeStamp(alert_name, propertys)
     console.info("alert_date_name: " + alert_name + ", change content from : " + currAlertDateElem.html() + " to : " + propertys['alert_date']);
     currAlertDateElem.text(propertys['alert_date']);
   }
-
 }
 
 //
-// setze wenn verändert den Sliderstatus
+// setze wenn verändert den Sliderstatus in der INDEX Gui
 //
 function updateAlertSlider(alert_name, propertys)
 {
@@ -389,7 +372,228 @@ function updateAlertSlider(alert_name, propertys)
   // TODO: Weckzeit, Weckdatum, Titel (note) verändert
   // oder Tiemr dazu/entfernt
   //
-
 }
+
+
+/*#############################################################################
+####                                                                       ####
+#### EDIT Page für ALARME                                                  ####
+####                                                                       ####
+#############################################################################*/
+
+//
+// initialisiere die EDIT Page
+//
+function initEditPage()
+{
+  var alertName = $('input#alert-name').val();
+  console.debug('edit page for alert: ' + alertName);
+  console.debug("init edit page bindings...");
+  //
+  // Funktion beim setzten eines Datums
+  //
+  $('input:text#date-picker').bind('datebox', function (event, passed)
+  {
+    if( passed.method != undefined && passed.method == 'set')
+    {
+      console.debug('new DATE set: value: ' + passed.value);
+    }
+    else if ( passed.method != undefined && passed.method == 'clear')
+    {
+      console.debug('DATE CLEAR');
+    }
+    /*
+    var date = $('input:text#date-picker').datebox('getTheDate');
+    var datestr = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDate();
+    var datestr2 = date.toJSON()
+    console.debug("datestring: " +  datestr );
+    console.debug("datestring JSON: " +  datestr2 );
+    */
+  });
+  //
+  // Funktion beim setzten einer Zeit
+  //
+  $('input:text#time-picker').bind('datebox', function (event, passed)
+  {
+    if( passed.method != undefined && passed.method == 'set')
+    {
+      console.debug('new TIME set: value: ' + passed.value);
+    }
+    /*
+    var date = $('input:text#time-picker').datebox('getTheDate');
+    var datestr = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDate();
+    var datestr2 = date.toJSON()
+    console.debug("timestring: " +  datestr );
+    console.debug("timestring JSON: " +  datestr2 );
+    */
+  });
+  // 
+  // Initiiere das Update der Werte in der EDIT GUI
+  // (ASYNCRON)
+  //
+  updateEditGUI(alertName);
+  //
+  // Funktion beim klick auf SICHERN
+  //
+  $('a#save-alert').click(saveAlertValues);
+}
+
+//
+// hole die aktuellen Einstellugnen des Alarms
+//
+function updateEditGUI(alertName)
+{
+  console.log('ask alert properties (' + alertName + ')...');
+  //
+  // anfrageparameter bauen
+  //
+  //var alertArr = Array([alertName, ' ']);
+  var requestData = { 'getstate': alertName };
+  //
+  // JSON URL aufrufen
+  //
+  $.getJSON(
+    alert_status,           /* die URL */
+    requestData,            /* die GET Parameter */
+    recAlertStatusData      /* die "success" Funktion */
+  );
+  timerIsRunning = false;
+}
+
+//
+// Die Funktion, welche beim Empfang der Daten für den alarm 
+// aufgerufen wird
+//
+function recAlertStatusData(data)
+{
+  //
+  // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
+  // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
+  // Ebene 2 == key: Wertename: value: Wert
+  //
+  console.debug("recived data from statusrequest...")
+  //
+  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
+  //
+  $.each(data,
+    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
+    function (alert_name, propertys)
+    {
+      if (alert_name == 'error')
+      {
+        console.error("while updateEditGUI(): error recived!");
+      }
+      else
+      {
+        console.debug("recived status: '" + alert_name + "' found. Update...");
+        // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
+        $('input#time-picker').datebox('setTheDate', propertys['alert_time'] /*'formatted string'*/);
+        $('input#date-picker').datebox('setTheDate', propertys['alert_date'] /*'formatted string'*/);
+        //
+        // Wochentage durchlaufen
+        // 
+        daysArr = propertys['days'].split(',');
+        // Jetzt für alle Tage prüfen und setzen
+        var d_checked = false;
+        // Montag
+        if( $.inArray('mo', daysArr) > -1 ) {d_checked = true;} else { d_checked = false; }
+        $('input#cb-monday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Dienstag
+        if( $.inArray('tu', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-tuesday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Mittwoch
+        if( $.inArray('we', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-wednesday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Donnerstag
+        if( $.inArray('th', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-thursday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Freitag
+        if( $.inArray('fr', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-friday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Samstag
+        if( $.inArray('sa', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-saturday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        // Sonntag
+        if( $.inArray('so', daysArr) ) {d_checked = true;} else { d_checked = false;}
+        $('input#cb-sunday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        //
+        // Jetzt Sender wählen, vorerst geht nur PRESET_1 bis PRESET_6
+        // ist RADIO, sollte also immer nur einer aktiviert sein
+        //
+        var editSource = propertys['source'];
+        if( editSource.match(/^PRESET_[123456]$/))
+        {
+          console.debug('source matches PRESET: ' + propertys['source'] );
+          if(propertys['source'] == 'PRESET_1') {$('input#rad-preset-1').attr('checked', 'checked', true).checkboxradio('refresh');}
+          else if(editSource == 'PRESET_2') {$('input#rad-preset-2').attr('checked', 'checked', true).checkboxradio('refresh');}
+          else if(editSource == 'PRESET_3') {$('input#rad-preset-3').attr('checked', 'checked', true).checkboxradio('refresh');}
+          else if(editSource == 'PRESET_4') {$('input#rad-preset-4').attr('checked', 'checked', true).checkboxradio('refresh');}
+          else if(editSource == 'PRESET_5') {$('input#rad-preset-5').attr('checked', 'checked', true).checkboxradio('refresh');}
+          else if(editSource == 'PRESET_6') {$('input#rad-preset-6').attr('checked', 'checked', true).checkboxradio('refresh');}
+          }
+        else
+        {
+          console.debug('source: ' + propertys['source'] );
+          console.error('not an predefined source in config. others not supported yet. set to preset 1')          
+          $('input#rad-preset-1').attr('checked', 'checked', true).checkboxradio('refresh');
+        }
+        //
+        // GERÄTE
+        // TODO: das mit den vorhandenen abgleichen
+        //
+        var availDevicesInputs = $('fieldset#devicesgroup > div > input');
+        console.debug("input list: " + availDevicesInputs.length + " elems")
+        var tempAlarmDevices = propertys['devices'].split(',');
+        var alarmDevices = Array();
+        console.debug("devices list: '" + propertys['devices'] + "'")
+        for( var idx=0; idx < tempAlarmDevices.length; idx++ )
+        {
+          alarmDevices[idx] = tempAlarmDevices[idx].trim().replace(" ", "_" );
+        }
+
+        //
+        // durchsuche die verfügbaren Geräte aus der Seite und 
+        // finde heraus ob der alarm ein oder mehrere Geräte davon haben will
+        //
+        for( var idx = 0; idx < availDevicesInputs.length; idx++ )
+        {
+          _avDevice = availDevicesInputs[idx];
+          _avDeviceId = _avDevice.id;
+          var currentDeviceInput = $('fieldset#devicesgroup > div > input'+ _avDeviceId);
+          if($.inArray(_avDeviceId, alarmDevices) > -1 )
+          {
+            console.debug("Device: " + _avDeviceId + " is in avaivible devices.");
+            $('input#'+ _avDeviceId).attr('checked', 'checked', d_checked).checkboxradio('refresh');
+          }
+          else
+          {
+            console.debug("Device: " + _avDeviceId + " is NOT in avaivible devices.");
+            $('input#'+ _avDeviceId).removeAttr('checked').checkboxradio('refresh');
+          }
+        }
+        //
+        // Lautstärke
+        //
+        $('input#volume-sl').val(propertys['volume']);
+        //
+        // Lautstärke einblenden oder nicht
+        //
+        $('input#raise_vol').prop('checked', propertys['raise_vol']);
+      }
+    }
+  );
+  console.debug("recived data from statusrequest...DONE.")
+}
+
+
+//
+// Funktion zum sichern eines ALARMES
+//
+function saveAlertValues()
+{
+  var whichAlert = $('input#alert-name');
+  console.debug('ALERT NAME: ' + whichAlert.val()); //$('input#alert-name').val() );
+}
+
 
 

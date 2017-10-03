@@ -17,9 +17,21 @@ def main():
     addr = (server_addr,server_port)
 
     try:
-        print("get all states...")
+        #print("get all devices...")
+        #req = dict()
+        #req['get'] = [ 'devices' ]
+        #msgb = json.dumps(req).encode(encoding='utf-8')
+        #print("send data to server: <%s>..." % msgb.decode('utf-8'))
+        #sent = sock.sendto(msgb, addr)
+        #print("await response...")
+        #data, server = sock.recvfrom(4094)
+        #rec_msg = data.decode('utf-8')
+        #print("recived {}".format(rec_msg))
+        #print("get all devices...OK")
+
+        print("get alert-01 states...")
         req = dict()
-        req['get'] = [ 'all' ]
+        req['get'] = [ 'alert-01' ]
         msgb = json.dumps(req).encode(encoding='utf-8')
         print("send data to server: <%s>..." % msgb.decode('utf-8'))
         sent = sock.sendto(msgb, addr)
@@ -27,7 +39,19 @@ def main():
         data, server = sock.recvfrom(4094)
         rec_msg = data.decode('utf-8')
         print("recived {}".format(rec_msg))
-        print("get all states...OK")
+        print("get alert-01 states...OK")
+
+        # print("get all states...")
+        # req = dict()
+        # req['get'] = [ 'all' ]
+        # msgb = json.dumps(req).encode(encoding='utf-8')
+        # print("send data to server: <%s>..." % msgb.decode('utf-8'))
+        # sent = sock.sendto(msgb, addr)
+        # print("await response...")
+        # data, server = sock.recvfrom(4094)
+        # rec_msg = data.decode('utf-8')
+        # print("recived {}".format(rec_msg))
+        # print("get all states...OK")
 
         # sleep(10)
 
