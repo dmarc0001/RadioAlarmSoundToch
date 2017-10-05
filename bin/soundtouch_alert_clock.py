@@ -158,7 +158,7 @@ class SoundTouchAlertClock:
                 # check mal, ob sich die Modify Zeit des Configfiles verändert hat
                 self.current_config_modify_time = self.__read_mod_time()
             if int(time()) > self.timestamp_to_scan_devices:
-                # Liste zu alt, erneuere sie
+                # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
                 self.__find_available_devices()
             sleep(.8)
         #
@@ -202,7 +202,9 @@ class SoundTouchAlertClock:
         #
         # finde Geräte im Netzwerk
         #
+        self.log.debug("discover soundtouch devices...")
         self.available_devices = discover_devices(timeout=3)  # Default timeout is 3 seconds
+        self.log.debug("discover soundtouch devices...OK")
         SoundTouchAlertClock.devices_lock.release()
         self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
         return len(self.available_devices)
