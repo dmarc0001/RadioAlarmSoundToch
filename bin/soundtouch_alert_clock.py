@@ -43,6 +43,7 @@ class SoundTouchAlertClock:
     DEFAULT_LOGFILE = "alert_clock.log"
     DEFAULT_LOGLEVEL = logging.DEBUG
     DEFAULT_CONFIGCHECK = 20
+    DEFAULT_TIME_TO_FIND_DEVICES = 600
     devices_lock = Lock()
 
     def __init__(self, _config_file: str):
@@ -64,7 +65,7 @@ class SoundTouchAlertClock:
         self.timezone = 'UTC'
         self.available_devices = []
         self.alert_in_progress = None
-        self.available_devices_timestamp = 0
+        self.timestamp_to_scan_devices = 0
         self.alerts = []
         self.udp_serverthread = None
         #
@@ -156,7 +157,7 @@ class SoundTouchAlertClock:
                 self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
                 # check mal, ob sich die Modify Zeit des Configfiles verändert hat
                 self.current_config_modify_time = self.__read_mod_time()
-            if self.available_devices_timestamp + 500 < int(time()):
+            if int(time()) > self.timestamp_to_scan_devices:
                 # Liste zu alt, erneuere sie
                 self.__find_available_devices()
             sleep(.8)
@@ -201,9 +202,9 @@ class SoundTouchAlertClock:
         #
         # finde Geräte im Netzwerk
         #
-        self.available_devices = discover_devices(timeout=3)  # Default timeout is 5 seconds
+        self.available_devices = discover_devices(timeout=3)  # Default timeout is 3 seconds
         SoundTouchAlertClock.devices_lock.release()
-        self.available_devices_timestamp = int(time())
+        self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
         return len(self.available_devices)
 
     def __get_available_devices(self):
@@ -211,7 +212,7 @@ class SoundTouchAlertClock:
         Gib kopie einer Liste mit verfügbaten Geräte zurück, sofern vorhanden
         :return:
         """
-        if self.available_devices_timestamp + 300 < int(time()):
+        if int(time()) > self.timestamp_to_scan_devices:
             # Liste zu alt, erneuere sie
             if self.__find_available_devices() == 0:
                 # keine Geräte, dann ist hier ENDE GeLÄNDE
@@ -227,7 +228,7 @@ class SoundTouchAlertClock:
         :param _name_to_find: Name des Gerätes
         :return: GEräteobjekt oder None
         """
-        if self.available_devices_timestamp + 300 < int(time()):
+        if int(time()) > self.timestamp_to_scan_devices:
             # Liste zu alt, erneuere sie
             if self.__find_available_devices() == 0:
                 # keine Geräte, dann ist hier ENDE GeLÄNDE
@@ -348,12 +349,6 @@ class SoundTouchAlertClock:
             self.alerts.append(alert)
             self.log.debug("create RadioAlerts {}...OK".format(section))
         ConfigFileObj.config_lock.release()
-        #
-        # thread mit neuer config versorgen
-        #
-        # Nee, config ist per referenz übergeben
-        #if self.udp_serverthread is not None:
-        #    self.udp_serverthread.set_config(self.config)
         # ENDE
 
     @staticmethod
