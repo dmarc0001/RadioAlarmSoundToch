@@ -141,7 +141,7 @@ function startRefreshTimer()
 }
 
 //
-// Stoppe den Refresh Timer für dei INDEX Seite
+// Stoppe den Refresh Timer für die INDEX Seite
 //
 function stopRefreshTimer()
 {
@@ -282,6 +282,7 @@ function timerFunc()
   console.log("run timerFunc() to reload timer data...");
   //
   // anfrageparameter bauen
+  //
   var requestData = { 'getstate': 'all' };
   //
   // JSON URL aufrufen
@@ -296,6 +297,7 @@ function timerFunc()
 
 //
 // die AJAX "success" Funktion wenn Statusdaten empfangen wurden
+// TODO: wird ein Alarm zugefügt oder entfernt seite komplett neu laden
 //
 function recStatusDataFunc(data)
 {

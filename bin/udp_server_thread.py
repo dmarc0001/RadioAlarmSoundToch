@@ -133,6 +133,9 @@ class RadioCommandServer(Thread):
         elif 'set' in cmd:
             self.log.debug("get cmd recognized...")
             return self.__set_cmd_parse(cmd['set'])
+        elif 'delete' in cmd:
+            self.log.debug("DELETE cmd recognized...")
+            return self.__delete_cmd_parse(cmd['delete'])
         else:
             self.log.warning("unknown command recived!")
             return json.dumps({'error': 'unknown command or not implemented yet'}).encode(encoding='utf-8')
@@ -206,7 +209,7 @@ class RadioCommandServer(Thread):
         for sitem in _cmd:
             #
             # alle sets durch
-            # {"set":[{"alert":"alert-04","enable":"true"}, {"alert":"alert-03","enable":"true"}]}
+            # {"set":[{"alert":"alert-04","enable":"true", ...}, {"alert":"alert-03","enable":"true", ...}]}
             #
             alert_name = sitem['alert']
             self.log.debug("found alert {} with set commands".format(alert_name))
@@ -229,7 +232,7 @@ class RadioCommandServer(Thread):
         # ende der alarme
         if is_successful:
             # es scheint alles geklappt zu haben
-            self.log.debug("set command for alarm(s) successful!")
+            self.log.debug("set command for alert(s) successful!")
             if self.on_config_change is not None:
                 self.on_config_change(int(time()))
             return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
@@ -237,6 +240,32 @@ class RadioCommandServer(Thread):
             # etwas lief schief
             self.log.warning("an error has occurred")
             return json.dumps({'error': 'an error has occurred'}).encode(encoding='utf-8')
+        # ENDE __set_cmd_parse
+
+    def __delete_cmd_parse(self, _cmd: dict):
+        """
+        Ein DELETE Kommando empfangen, hier bearbeiten
+        :param _cmd: das Kommando als JSON Objekt
+        :return: ergebnis als JSON
+        """
+        for sitem in _cmd:
+            #
+            # alle sets durch
+            # {"delete":[{"alert":"alert-04"}]}
+            #
+            alert_name = sitem['alert']
+            self.log.debug("found alert {} with DELETE command".format(alert_name))
+            ConfigFileObj.config_lock.acquire()
+            if alert_name in self.config:
+                del self.config[alert_name]
+                ConfigFileObj.config_lock.release()
+                if self.on_config_change is not None:
+                    self.on_config_change(int(time()))
+                return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(encoding='utf-8')
+            else:
+                self.log.fatal("to delete alert {} is not found in config...".format(alert_name))
+                ConfigFileObj.config_lock.release()
+                return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
 
     def __make_udp_socket(self):

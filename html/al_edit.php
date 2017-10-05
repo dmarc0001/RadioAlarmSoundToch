@@ -4,8 +4,7 @@
   # 09/2017 D. Marciniak
   #
   # Das Script wird nicht direkt vom Benutzer sondern via JavaScript aus der 
-  # Webseite aufgerufen und gibt Informationen via JSON zurück, bzw führt 
-  # Weckeraktionen aus und gibt Erfolg oder Misserefolg zurück (als JSON String)
+  # Webseite aufgerufen 
   #
 
   # Konfiguration bearbeiten

@@ -74,11 +74,11 @@
                 $getArray[] = array('alert' => $alert, 'enable' => $whichState );
             }
             #
-            # erzeuge die Datenstruktur für das Kommando an den Relaisaemon
+            # erzeuge die Datenstruktur für das Kommando an den Daemon
             #
             $request = array('set' => $getArray );
             #
-            # sende das Kommando an den Relaisserver, 
+            # sende das Kommando an den Daemon, 
             # konvertiere dabei die Datenstruktur on-the-fly in JSON String vor dem aufruf
             #
             $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
@@ -183,11 +183,11 @@
             if($alert_raise_vol != null) {$editArray[] = array('alert_raise_vol' => $alert_raise_vol );}
             if($alert_volume != null) {$editArray[] = array('alert_vol' => $alert_volume );}
             #
-            # erzeuge die Datenstruktur für das Kommando an den Relaisaemon
+            # erzeuge die Datenstruktur für das Kommando an den Daemon
             #
             $request = array('edit-alert' => $editArray );
             #
-            # sende das Kommando an den Relaisserver, 
+            # sende das Kommando an den Daemon, 
             # konvertiere dabei die Datenstruktur on-the-fly in JSON String vor dem aufruf
             #
             $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
@@ -207,6 +207,22 @@
             echo json_encode($response);
             return;
         }
+    }
+    elseif(isset($_GET['delete-alert']))
+    {
+        $whichAlert = $_GET['delete-alert'];
+        $delArray = array();
+        $delArr[] = array('alert' => $whichAlert );
+        $request = array('delete' => $delArr );
+        #
+        # sende das Kommando an den Server
+        # konvertiere dabei die Datenstruktur on-the-fly in JSON String vor dem Aufruf
+        #
+        $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+        #
+        # sende das Ergebnis an den Aufrufer zurück
+        echo $response;
+        return;
     }
     else
     {

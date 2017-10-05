@@ -77,6 +77,7 @@
         printf( "%".$insertCount."s<label for=\"alert-%02d\">%s</label>\n", " ", $alertNumber, $configArr[$alert]['note']);
         printf( "%".$insertCount.'s<input type="checkbox" data-role="flipswitch" name="alert-%02d" id="alert-%02d" data-on-text="AN" data-off-text="AUS" data-wrapper-class="custom-label-flipswitch" />'."\n", " ", $alertNumber, $alertNumber );
         printf( "%".$insertCount.'s<a href="al_edit.php?alert=alert-%02d" role="button" id="edit-alert-%02d" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini" data-transition="flip">bearbeiten</a>'."\n", " ", $alertNumber, $alertNumber );
+        printf( "%".$insertCount.'s<a href="al_delete.php?alert=alert-%02d" id="delete-alert-%02d" class="ui-btn ui-btn-inline ui-icon-delete ui-btn-icon-notext" data-transition="flip">DELETE</a>'."\n", " ", $alertNumber, $alertNumber);
         printf( "%".$insertCount."s<br />\n", " " );
         # Uhrzeit
         printf( "%".$insertCount."s<div class=\"leftcol\">Weckzeit</div>\n", " ", $alertNumber );
