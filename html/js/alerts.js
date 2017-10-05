@@ -74,6 +74,17 @@ function changePageAction(event, ui)
     console.debug("deactivate any things on the edit page...");
     initEditPage();
   } 
+  else if(toPage == 'delete-page')
+  {
+    console.debug("deactivate any things on the index page...");
+    if (timerId != null)
+    {
+      stopRefreshTimer();
+    }      
+    // auf der EDIT Seite (Dialog) ein paar Sachen aktivieren
+    console.debug("deactivate any things on the edit page...");
+    initDeletePage();
+  }
 }
 
 /*#############################################################################
@@ -374,7 +385,6 @@ function updateAlertSlider(alert_name, propertys)
   //
 }
 
-
 /*#############################################################################
 ####                                                                       ####
 #### EDIT Page für ALARME                                                  ####
@@ -457,7 +467,6 @@ function updateEditGUI(alertName)
     requestData,            /* die GET Parameter */
     recAlertStatusData      /* die "success" Funktion */
   );
-  timerIsRunning = false;
 }
 
 //
@@ -595,5 +604,145 @@ function saveAlertValues()
   console.debug('ALERT NAME: ' + whichAlert.val()); //$('input#alert-name').val() );
 }
 
+/*#############################################################################
+####                                                                       ####
+#### DELETE Page für ALARME                                                ####
+####                                                                       ####
+#############################################################################*/
+
+function initDeletePage()
+{
+  console.log("initDeletePage()...");
+  var alertName = $('input#alert-name').val();
+  $('a#delete-alert').click(doDeleteAlert);
+  updateDeleteGUI(alertName);
+}
+
+//
+// lösche den Alarm nun wirklich
+//
+function doDeleteAlert()
+{
+  var alertName = $('input#alert-name').val();
+  //
+  // lösche den Alarm von der Konfiguration
+  //
+  console.log('delete alert ' + alertName + ' from config...');
+  deleteAlertFromConfig(alertName);
+  console.log('delete alert ' + alertName + ' from config...');
+  //
+  // lade die INDEX Seite NEU
+  //
+  console.log('change page to index...');
+  $.mobile.changePage("index.php", { transition: "flip", changeHash: true, reloadPage: true } );
+  console.log('change page to index...OK');
+}
+
+//
+// löschen dann den Alarm ndgültig
+//
+function deleteAlertFromConfig(alertName)
+{
+  
+  console.log('alert delete call (' + alertName + ')...');
+  //
+  // anfrageparameter bauen
+  //
+  var requestData = { 'delete-alert': alertName };
+  //
+  // JSON URL aufrufen
+  //
+  $.getJSON(
+    alert_status,                 /* die URL */
+    requestData,                  /* die GET Parameter */
+    recAlertDelete                /* die "success" Funktion */
+  );
+}
+
+function recAlertDelete(data)
+{
+
+  //
+  // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
+  // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
+  // Ebene 2 == key: Wertename: value: Wert
+  //
+  console.debug("recived data from deleterequest...")
+  //
+  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
+  //
+  $.each(data,
+    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
+    function (alert_name, propertys)
+    {
+      if (alert_name == 'error')
+      {
+        console.error("while deleteAlertFromConfig(): error recived!");
+      }
+      else
+      {
+        console.debug("delete: '" + alert_name + "' OK");
+      }
+    }
+  );
+  console.debug("recived data from deleterequest...")
+}
+
+
+//
+// hole die aktuellen Einstellugnen des Alarms
+//
+function updateDeleteGUI(alertName)
+{
+  
+  console.log('ask alert properties (' + alertName + ')...');
+  //
+  // anfrageparameter bauen
+  //
+  var requestData = { 'getstate': alertName };
+  //
+  // JSON URL aufrufen
+  //
+  $.getJSON(
+    alert_status,                 /* die URL */
+    requestData,                  /* die GET Parameter */
+    recAlertDeleteStatusData      /* die "success" Funktion */
+  );
+}
+
+//
+// Die Funktion, welche beim Empfang der Daten für den alarm 
+// aufgerufen wird
+//
+function recAlertDeleteStatusData(data)
+{
+  //
+  // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
+  // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
+  // Ebene 2 == key: Wertename: value: Wert
+  //
+  console.debug("recived data from statusrequest...")
+  //
+  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
+  //
+  $.each(data,
+    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
+    function (alert_name, propertys)
+    {
+      if (alert_name == 'error')
+      {
+        console.error("while updateDeleteGUI(): error recived!");
+      }
+      else
+      {
+        console.debug("recived status: '" + alert_name + "' found. Update...");
+        // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
+        $('input#delete-alert-time').val(propertys['alert_time']);
+        $('input#delete-alert-date').val(propertys['alert_date']);
+      }
+    }
+  );
+  console.debug("recived data from statusrequest...DONE.")
+}
 
 
