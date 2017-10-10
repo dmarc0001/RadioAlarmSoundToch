@@ -138,7 +138,7 @@
   {
     $insertCount = 18;
     $devId = strtolower(str_replace(" ", '_', $devName));
-    printf( '%'.$insertCount.'s<input type="checkbox" name="%s" id="%s" />'."\n", ' ', $devId, $devId );
+    printf( '%'.$insertCount.'s<input type="checkbox" name="alert-device" id="%s" />'."\n", ' ', $devId );
     printf( '%'.$insertCount.'s<label for="%s">%s</label>'."\n", ' ', $devId, $devName );    
   }
 ?>
@@ -149,7 +149,7 @@
             <!-- Lautstärke -->
             <form>
               <label for="volume-sl">Lautstärke</label>
-              <input type="range" name="volume-sl" id="volume-sl" min="0" max="100" value="1" data-popup-enabled="true" />
+              <input type="range" name="volume-sl" id="volume-sl" min="0" max="100" value="1" data-highlight="true" data-popup-enabled="true" />
             </form>
 
             <input type="checkbox" name="raise_vol" id="raise_vol" checked="checked" />

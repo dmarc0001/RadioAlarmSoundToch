@@ -550,7 +550,6 @@ function recAlertStatusData(data)
         }
         //
         // GERÄTE
-        // TODO: das mit den vorhandenen abgleichen
         //
         var availDevicesInputs = $('fieldset#devicesgroup > div > input');
         console.debug("input list: " + availDevicesInputs.length + " elems")
@@ -585,7 +584,7 @@ function recAlertStatusData(data)
         //
         // Lautstärke
         //
-        $('input#volume-sl').val(propertys['volume']);
+        $('input#volume-sl').val(propertys['volume']).slider('refresh');
         //
         // Lautstärke einblenden oder nicht
         //
@@ -603,8 +602,134 @@ function recAlertStatusData(data)
 function saveAlertValues()
 {
   var whichAlert = $('input#alert-name');
-  console.debug('ALERT NAME: ' + whichAlert.val()); //$('input#alert-name').val() );
+  var propertyArray = new Object();
+
+  console.debug('SAVE ALERT: ' + whichAlert.val()); 
+  //
+  // Datum und Zeit, falls gesetzt
+  //
+  var dateTime = $('input#time-picker').datebox('getTheDate');
+  propertyArray.alert_time = dateTime.getHours() + ":" + dateTime.getMinutes();
+  var dateTime = $('input#date-picker').datebox('getTheDate');
+  propertyArray.alert_date = dateTime.getDate() + "." + dateTime.getMonth() + "." + dateTime.getFullYear();
+  
+  //
+  // Wochentage, falls gesetzt
+  //
+  var weekDays = new Array();
+  if( $('input#cb-monday').is(':checked') )
+  {
+    weekDays.push('mo');
+  }
+  if( $('input#cb-tuesday').is(':checked') )
+  {
+    weekDays.push('tu');
+  }
+  if( $('input#cb-wednesday').is(':checked') )
+  {
+    weekDays.push('we');
+  }
+  if( $('input#cb-thursday').is(':checked') )
+  {
+    weekDays.push('th');
+  }
+  if( $('input#cb-friday').is(':checked') )
+  {
+    weekDays.push('fr');
+  }
+  if( $('input#cb-saturday').is(':checked') )
+  {
+    weekDays.push('sa');
+  }
+  if( $('input#cb-sunday').is(':checked') )
+  {
+    weekDays.push('su');
+  }
+  propertyArray.days = weekDays.join();
+  //
+  // SOURCE rausfinden
+  //
+  $("input[name*=rad-presets]:checked").each(
+    //
+    // Kann bei RADIO ja nur einer sein...
+    //
+    function () 
+    {
+      var alertId = $(this).attr('id');
+      propertyArray.source = alertId.replace('rad-preset-', 'PRESET_');
+    }
+  );
+  //
+  // Geräte herausfinden
+  //
+  var devicesArray = new Array();
+  $('input[name*=alert-device]:checked').each(
+    //
+    // abgehakt...
+    //
+    function()
+    {
+      devicesArray.push($(this).attr('id'));
+    }
+  );
+  propertyArray.devices = devicesArray.join();
+  //
+  // alarm volume
+  //
+  propertyArray.volume = $('#volume-sl').val();
+  //
+  // ansteigender alarm
+  //
+  propertyArray.raise_vol = $('input#raise_vol').is(':checked');
+
+
+  //
+  // anfrageparameter bauen
+  //
+  propertyArray['edit-alert'] = whichAlert.val();
+  console.log("requestData: <" + $.param(propertyArray) + ">");
+  requestData = $.param(propertyArray);
+  // JSON URL aufrufen
+  //
+  $.getJSON(
+    alert_status,           /* die URL */
+    requestData,            /* die GET Parameter */
+    recAlertSave            /* die "success" Funktion */
+  );
 }
+
+//
+// Callback Funktion beim sichern eines alarmes
+//
+function recAlertSave(data)
+{
+  //
+  // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
+  // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
+  // Ebene 2 == key: Wertename: value: Wert
+  //
+  console.debug("recived data from saverequest...")
+  //
+  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
+  //
+  $.each(data,
+    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
+    function (alert_name, propertys)
+    {
+      if (alert_name == 'error')
+      {
+        console.error("while saveAlertValues(): error recived!");
+      }
+      else
+      {
+        console.debug("save: '" + alert_name + "' OK");
+      }
+    }
+  );
+  console.debug("recived data from saverequest...OK")
+}
+
+
 
 /*#############################################################################
 ####                                                                       ####
