@@ -14,7 +14,24 @@
     # Hier beginnt die Abarbeitung, zunächst die Unterscheidung ob
     # Information oder Aktion
     #
-    if( isset($_GET["getstate"]) )
+    if( isset($_GET["getconfigid"]))
+    {
+        #
+        # frage nach der config-id (wird immer nach dem Einlesen oder der Änderung der Config gesetzt)
+        #
+        $request = array('get' => array('config-id'));
+        #
+        # stele die Anfrage beim Server und gib Antwort oder Fehler zurück
+        # dafür noch (on-the-fly) aus der Datenstruktur einen JSON String machen
+        #
+        $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+        #
+        # sende das Ergebnis (JSON String) an den Aufrufer zurück
+        #
+        echo $response;
+        return;
+    }
+    elseif( isset($_GET["getstate"]) )
     {
         #
         # Information abfordern
@@ -127,8 +144,9 @@
         $alert_volume = null;
         $alert_note = null;
 
+        $alertEdArray = array();
         $editArray = array();
-        $editArray[] = array('alert' => $whichAlert );
+        $editArray['alert'] = $whichAlert;
         # die Zeit setzten?
         if(isset($_GET["alert_time"])) 
         { 
@@ -146,23 +164,23 @@
             $alert_days = null;
         }
         # welche SOURCE wird gesetzt (TODO: momentan nur PRESETS)
-        if(isset($_GET["source"]))
+        if(isset($_GET["alert_source"]))
         {
-            if($_GET["source"].preg_match('/^PRESET_[123456]$/'))
+            if($_GET["alert_source"].preg_match('/^PRESET_[123456]$/'))
             {
-                $alert_source = $_GET["source"];
+                $alert_source = $_GET["alert_source"];
             }
             // TODO: abhängig von der source noch andere Parameter...
         }
         # soll die Lautstärke langsam hochgedrecht werden?
-        if(isset($_GET['raise_vol']))
+        if(isset($_GET['aleret_raise_vol']))
         {
-            $alert_raise_vol = $_GET['raise_vol'];
+            $alert_raise_vol = $_GET['alert_raise_vol'];
         }
         # welche alarmlautstärke
-        if(isset($_GET['alert_vol']))
+        if(isset($_GET['alert_volume']))
         {
-            $alert_volume = $_GET['alert_vol'];
+            $alert_volume = $_GET['alert_volume'];
         }
         # welcher name des Alarms
         if(isset($_GET['alert_note']))
@@ -187,17 +205,18 @@
         #
         # zu sendendes Array zusammenbauen
         #
-        if($alert_enable != null) {$editArray[] = array('alert_enable' => $alert_enable );}
-        if($alert_time != null) {$editArray[] = array('alert_time' => $alert_time );}
-        if($alert_days != null) {$editArray[] = array('alert_days' => $alert_days );}
-        if($alert_date != null) {$editArray[] = array('alert_date' => $alert_date );}
-        if($alert_source != null) {$editArray[] = array('alert_source' => $alert_source );}
-        if($alert_raise_vol != null) {$editArray[] = array('alert_raise_vol' => $alert_raise_vol );}
-        if($alert_volume != null) {$editArray[] = array('alert_vol' => $alert_volume );}
+        if($alert_enable != null) {$editArray['alert_enable'] = $alert_enable;}
+        if($alert_time != null) {$editArray['alert_time'] = $alert_time;}
+        if($alert_days != null) {$editArray['alert_days']= $alert_day;}
+        if($alert_date != null) {$editArray['alert_date'] = $alert_date;}
+        if($alert_source != null) {$editArray['source'] = $alert_source;}
+        if($alert_raise_vol != null) {$editArray['raise_vol'] = $alert_raise_vol;}
+        if($alert_volume != null) {$editArray['volume'] = $alert_volume;}
         #
         # erzeuge die Datenstruktur für das Kommando an den Daemon
         #
-        $request = array('edit-alert' => $editArray );
+        $alertEdArray[] = $editArray;
+        $request = array('set' => $alertEdArray );
         #
         # sende das Kommando an den Daemon, 
         # konvertiere dabei die Datenstruktur on-the-fly in JSON String vor dem aufruf

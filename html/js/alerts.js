@@ -7,6 +7,8 @@ var alert_status = '/tools/alerts.php';
 var ignoreTrigger = false;
 var regexTrue = /true|yes|1|on/;
 var timerId = null;
+var configId = 0;
+var editDate = null;
 
 //
 // jQuery Mobile: wenn PAGE geänder ist, ausführen...
@@ -269,8 +271,7 @@ function setStatusDataFunc(data)
 }
 
 //
-// regelmäßiges Update der Slider für die alerts
-// (kann ja auch von anderem Clienten verändert werden)
+// regelmäßig gucken, ob configänderungen entstanden sind
 //
 function timerFunc()
 {
@@ -279,7 +280,75 @@ function timerFunc()
     return;
   }
   timerIsRunning = true;
-  console.log("run timerFunc() to reload timer data...");
+  console.log("run timerFunc() to reload config...");
+  //
+  // anfrageparameter bauen
+  //
+  var requestData = { 'getconfigid': 'true' };
+  //
+  // JSON URL aufrufen
+  //
+  $.getJSON(
+    alert_status,           /* die URL */
+    requestData,            /* die GET Parameter */
+    recCheckUpdateFunc      /* die "success" Funktion */
+  );
+  timerIsRunning = false;
+  console.log("run timerFunc() to reload config...OK");
+}
+
+//
+// AJAX Antwortfunktion, ermittelt die aktuelle Version der Config
+//
+function recCheckUpdateFunc(data)
+{
+  // configId
+  //
+  // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
+  // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
+  // Ebene 2 == key: Wertename: value: Wert
+  //
+  console.debug("recived data from config version request...");
+  //
+  // zunächst ebene 1 durchlaufen, die Alarmnamen
+  //
+  $.each(data,
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function(value_name, value)
+    {
+      if (value_name == 'error')
+      {
+        console.error("while timerFunc(): error recived!");
+      }
+      else
+      {
+        if( configId != value )
+        {
+          //
+          // Oh, da muss was gemacht werden, also komplettes update versuchen
+          //
+          console.debug("new config id recived (" + value + "). Update GUI...");
+          configId = value;
+          updateFunc();
+        }
+      }
+    }
+  );
+  console.debug("recived data from config version request...OK");
+}
+
+//
+// Update der Slider für die alerts
+// (kann ja auch von anderem Clienten verändert werden)
+//
+function updateFunc()
+{
+  if (timerIsRunning )
+  {
+    return;
+  }
+  timerIsRunning = true;
+  console.log("run updateFunc() to reload timer data...");
   //
   // anfrageparameter bauen
   //
@@ -311,19 +380,19 @@ function recStatusDataFunc(data)
   // zunächst ebene 1 durchlaufen, die Alarmnamen
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
-    function (alert_name, alertProps)
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function (value_name, value)
     {
-      if (alert_name == 'error')
+      if (value_name == 'error')
       {
-        console.error("while timerFunc(): error recived!");
+        console.error("while updateFunc(): error recived!");
       }
       else
       {
-        console.debug("recived status: '" + alert_name + "' found. Check for update...");
+        console.debug("recived status: '" + value_name + "' found. Check for update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
-        updateAlertSlider(alert_name, alertProps);
-        updateAlertTimeStamp(alert_name, alertProps);
+        updateAlertSlider(value_name, value);
+        updateAlertTimeStamp(value_name, value);
       }
     }
   );
@@ -333,12 +402,12 @@ function recStatusDataFunc(data)
 //
 // setze oder ändere in der INDEX GUI
 //
-function updateAlertTimeStamp(alert_name, propertys)
+function updateAlertTimeStamp(value_name, propertys)
 {
   // welcher Eintrag ist es
-  console.info("alert_name: " + alert_name + ", elem: " + alert_name.replace('alert', 'times'));
-  var currAlertTimeElem = $('div#' + alert_name.replace('alert', 'times'));
-  var currAlertDateElem = $('div#' + alert_name.replace('alert', 'once'));
+  console.info("value_name: " + value_name + ", elem: " + value_name.replace('alert', 'times'));
+  var currAlertTimeElem = $('div#' + value_name.replace('alert', 'times'));
+  var currAlertDateElem = $('div#' + value_name.replace('alert', 'once'));
   //
   // so, jetzt überlegen was passieren soll
   // Zeit...
@@ -346,7 +415,7 @@ function updateAlertTimeStamp(alert_name, propertys)
   if( currAlertTimeElem.html() != propertys['alert_time'])
   {
     // ok, ich verändere den Wert mal
-    console.info("alert_time_name: " + alert_name + ", change content from : " + currAlertTimeElem.html() + " to : " + propertys['alert_time']);
+    console.info("alert_time_name: " + value_name + ", change content from : " + currAlertTimeElem.html() + " to : " + propertys['alert_time']);
     currAlertTimeElem.text(propertys['alert_time']);
   }
   //
@@ -355,7 +424,7 @@ function updateAlertTimeStamp(alert_name, propertys)
   if( currAlertDateElem.html() != propertys['alert_date'])
   {
     // ok, ich verändere den Wert mal
-    console.info("alert_date_name: " + alert_name + ", change content from : " + currAlertDateElem.html() + " to : " + propertys['alert_date']);
+    console.info("alert_date_name: " + value_name + ", change content from : " + currAlertDateElem.html() + " to : " + propertys['alert_date']);
     currAlertDateElem.text(propertys['alert_date']);
   }
 }
@@ -363,10 +432,10 @@ function updateAlertTimeStamp(alert_name, propertys)
 //
 // setze wenn verändert den Sliderstatus in der INDEX Gui
 //
-function updateAlertSlider(alert_name, propertys)
+function updateAlertSlider(value_name, propertys)
 {
   // welcher ist das?
-  var currSlider = $('input#' + alert_name);
+  var currSlider = $('input#' + value_name);
   //
   // so, jetzt überlegen was passieren soll
   //
@@ -376,7 +445,7 @@ function updateAlertSlider(alert_name, propertys)
   //
   if (currSlider.is(':checked') != alarmIsActive)
   {
-    console.log("switch for " + alert_name + " was changed, trigger switch...");
+    console.log("switch for " + value_name + " was changed, trigger switch...");
     ignoreTrigger = true
     currSlider.prop('checked', !alarmIsActive).trigger('click');
     ignoreTrigger = false
@@ -401,6 +470,8 @@ function initEditPage()
   var alertName = $('input#alert-name').val();
   console.debug('edit page for alert: ' + alertName);
   console.debug("init edit page bindings...");
+  // leeren...
+  editDate = null;
   //
   // Funktion beim setzten eines Datums
   //
@@ -408,19 +479,15 @@ function initEditPage()
   {
     if( passed.method != undefined && passed.method == 'set')
     {
+      editDate = passed.value;
       console.debug('new DATE set: value: ' + passed.value);
     }
     else if ( passed.method != undefined && passed.method == 'clear')
     {
+      // gewärleistet, dass Datum wirklich gelöscht wird
+      editDate = null;
       console.debug('DATE CLEAR');
     }
-    /*
-    var date = $('input:text#date-picker').datebox('getTheDate');
-    var datestr = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDate();
-    var datestr2 = date.toJSON()
-    console.debug("datestring: " +  datestr );
-    console.debug("datestring JSON: " +  datestr2 );
-    */
   });
   //
   // Funktion beim setzten einer Zeit
@@ -431,13 +498,6 @@ function initEditPage()
     {
       console.debug('new TIME set: value: ' + passed.value);
     }
-    /*
-    var date = $('input:text#time-picker').datebox('getTheDate');
-    var datestr = date.getFullYear() + "-" + date.getMonth() + "-" + date.getDate();
-    var datestr2 = date.toJSON()
-    console.debug("timestring: " +  datestr );
-    console.debug("timestring JSON: " +  datestr2 );
-    */
   });
   // 
   // Initiiere das Update der Werte in der EDIT GUI
@@ -487,19 +547,27 @@ function recAlertStatusData(data)
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
-    function (alert_name, propertys)
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function (value_name, propertys)
     {
-      if (alert_name == 'error')
+      if (value_name == 'error')
       {
         console.error("while updateEditGUI(): error recived!");
       }
       else
       {
-        console.debug("recived status: '" + alert_name + "' found. Update...");
+        console.debug("recived status: '" + value_name + "' found. Update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
-        $('input#time-picker').datebox('setTheDate', propertys['alert_time'] /*'formatted string'*/);
-        $('input#date-picker').datebox('setTheDate', propertys['alert_date'] /*'formatted string'*/);
+        $('input#time-picker').datebox('setTheDate', propertys['alert_time'] );
+        if(propertys['alert_date'].length > 4 )
+        {
+          $('input#date-picker').datebox('setTheDate', propertys['alert_date'] );
+        }
+        else
+        {
+          editDate = null;
+          $('input#date-picker').val('');
+        }
         //
         // Wochentage durchlaufen
         // 
@@ -595,7 +663,6 @@ function recAlertStatusData(data)
   console.debug("recived data from statusrequest...DONE.")
 }
 
-
 //
 // Funktion zum sichern eines ALARMES
 //
@@ -610,9 +677,14 @@ function saveAlertValues()
   //
   var dateTime = $('input#time-picker').datebox('getTheDate');
   propertyArray.alert_time = dateTime.getHours() + ":" + dateTime.getMinutes();
-  var dateTime = $('input#date-picker').datebox('getTheDate');
-  propertyArray.alert_date = dateTime.getDate() + "." + dateTime.getMonth() + "." + dateTime.getFullYear();
-  
+  if( editDate == null )
+  {
+    propertyArray.alert_date = "null";  
+  }
+  else
+  {
+    propertyArray.alert_date = editDate;
+  }
   //
   // Wochentage, falls gesetzt
   //
@@ -645,7 +717,11 @@ function saveAlertValues()
   {
     weekDays.push('su');
   }
-  propertyArray.days = weekDays.join();
+  propertyArray.alert_days = weekDays.join();
+  if( propertyArray.alert_days.length == 0 )
+  {
+    propertyArray.alert_days = 'null';
+  }
   //
   // SOURCE rausfinden
   //
@@ -656,7 +732,7 @@ function saveAlertValues()
     function () 
     {
       var alertId = $(this).attr('id');
-      propertyArray.source = alertId.replace('rad-preset-', 'PRESET_');
+      propertyArray.alert_source = alertId.replace('rad-preset-', 'PRESET_');
     }
   );
   //
@@ -672,17 +748,19 @@ function saveAlertValues()
       devicesArray.push($(this).attr('id'));
     }
   );
-  propertyArray.devices = devicesArray.join();
+  propertyArray.alert_devices = devicesArray.join();
+  if( propertyArray.alert_devices.length == 0 )
+  {
+    propertyArray.alert_devices = 'null';
+  }
   //
   // alarm volume
   //
-  propertyArray.volume = $('#volume-sl').val();
+  propertyArray.alert_volume = $('#volume-sl').val();
   //
   // ansteigender alarm
   //
-  propertyArray.raise_vol = $('input#raise_vol').is(':checked');
-
-
+  propertyArray.alert_raise_vol = $('input#raise_vol').is(':checked');
   //
   // anfrageparameter bauen
   //
@@ -713,16 +791,16 @@ function recAlertSave(data)
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
-    function (alert_name, propertys)
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function (value_name, propertys)
     {
-      if (alert_name == 'error')
+      if (value_name == 'error')
       {
         console.error("while saveAlertValues(): error recived!");
       }
       else
       {
-        console.debug("save: '" + alert_name + "' OK");
+        console.debug("save: '" + value_name + "' OK");
       }
     }
   );
@@ -799,16 +877,16 @@ function recAlertDelete(data)
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
-    function (alert_name, propertys)
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function (value_name, propertys)
     {
-      if (alert_name == 'error')
+      if (value_name == 'error')
       {
         console.error("while deleteAlertFromConfig(): error recived!");
       }
       else
       {
-        console.debug("delete: '" + alert_name + "' OK");
+        console.debug("delete: '" + value_name + "' OK");
       }
     }
   );
@@ -853,16 +931,16 @@ function recAlertDeleteStatusData(data)
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, alertProps des Objektes "data" via "each" aufgerufen
-    function (alert_name, propertys)
+    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    function (value_name, propertys)
     {
-      if (alert_name == 'error')
+      if (value_name == 'error')
       {
         console.error("while updateDeleteGUI(): error recived!");
       }
       else
       {
-        console.debug("recived status: '" + alert_name + "' found. Update...");
+        console.debug("recived status: '" + value_name + "' found. Update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
         $('input#delete-alert-time').val(propertys['alert_time']);
         $('input#delete-alert-date').val(propertys['alert_date']);

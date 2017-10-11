@@ -77,7 +77,7 @@
             <div>Weckdatum</div>
             <input type="text" id="date-picker" data-role="datebox" 
               data-options='{"mode": "calbox", "overrideDateFormat": "%d.%m.%Y", "usePlaceholder": "Datum", 
-                "afterToday": "true", "useClearButton": "true"}'>
+                "afterToday": "true", "useClearButton": "true", "showInitialValue": "true", "useLang":"de" }'>
             </input>
             
             <!-- an welchen Wochentagen - wenn kein Datum gesetzt ist -->
