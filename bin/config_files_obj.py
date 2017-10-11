@@ -47,7 +47,6 @@ class ConfigFileObj:
         """
         new_config = dict()
         self.config_file = _file_name
-
         # merke mir die Bearbeitungszeit
         fileinfo = os.stat(self.config_file)
         self.config_modify_time = fileinfo.st_mtime
@@ -64,7 +63,6 @@ class ConfigFileObj:
             for item in items:
                 name = item[0]
                 val = item[1]
-                #val = re.sub(ConfigFileObj.enclosing_dquotes, "", item[1])
                 if self.log is not None:
                     self.log.debug("  [{}] => '{}' = '{}'".format(section, name, val))
                 else:
@@ -77,6 +75,9 @@ class ConfigFileObj:
             del self.config[section]
         for section in new_config:
             self.config[section] = new_config[section]
+        v_items = dict()
+        v_items['version'] = int(time())
+        self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config
 
@@ -121,6 +122,8 @@ class ConfigFileObj:
         # das config-objekct wieder in ein parserobj konvertieren
         ConfigFileObj.config_lock.acquire()
         for section in sorted(self.config):
+            if section == 'version':
+                continue
             if self.log is not None:
                 self.log.debug("create section [{}]...".format(section))
             else:
@@ -160,7 +163,7 @@ class ConfigFileObj:
 
     @property
     def config_object(self):
-            return self.config
+        return self.config
 
 
 def main():
