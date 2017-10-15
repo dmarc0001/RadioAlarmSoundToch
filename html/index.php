@@ -73,29 +73,29 @@
         $blockName = $blockArr[$blockNr];
         printf( "%".$insertCount."s<div class=\"ui-block-%s\">\n", " ", $blockName);
         $insertCount += 2;
-        printf( "%".$insertCount."s<hr class=\"alert-border\"/>\n", " ");
-        printf( "%".$insertCount."s<label for=\"alert-%02d\">%s</label>\n", " ", $alertNumber, $configArr[$alert]['note']);
+        printf( "%".$insertCount."s<hr class=\"alert-border\" id=\"alert-%02d\" />\n", " ", $alertNumber);
+        printf( "%".$insertCount."s<label for=\"alert-%02d\" id=\"alert-%02d\">%s</label>\n", " ", $alertNumber, $alertNumber, $configArr[$alert]['note']);
         printf( "%".$insertCount.'s<input type="checkbox" data-role="flipswitch" name="alert-%02d" id="alert-%02d" data-on-text="AN" data-off-text="AUS" data-wrapper-class="custom-label-flipswitch" />'."\n", " ", $alertNumber, $alertNumber );
         printf( "%".$insertCount.'s<a href="al_edit.php?alert=alert-%02d" role="button" id="edit-alert-%02d" class="ui-shadow ui-btn ui-corner-all ui-btn-inline ui-mini" data-transition="flip">bearbeiten</a>'."\n", " ", $alertNumber, $alertNumber );
+        printf( "%".$insertCount.'s<a href="al_delete.php?alert=alert-%02d" id="delete-alert-%02d" class="ui-btn ui-btn-inline ui-icon-delete ui-btn-icon-notext" data-transition="flip">DELETE</a>'."\n", " ", $alertNumber, $alertNumber);
         printf( "%".$insertCount."s<br />\n", " " );
         # Uhrzeit
         printf( "%".$insertCount."s<div class=\"leftcol\">Weckzeit</div>\n", " ", $alertNumber );
-        printf( "%".$insertCount."s<div class=\"rightcol\" id=\"times-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['alert_time'] );
+        printf( "%".$insertCount."s<div class=\"rightcol\" id=\"times-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['time'] );
         printf( "%".$insertCount."s<br />\n", " " );
         # Tage / immer / einmalig
         if( isset( $configArr[$alert]['alert_date'] ) )
         {
           # ein einmaliger Alarm
-          printf( "%".$insertCount."s<div class=\"leftcol\">Weckdatum</div>\n", " ", $alertNumber );
-          printf( "%".$insertCount."s<div class=\"rightcol\" id=\"once-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['alert_date'] );
+          printf( "%".$insertCount."s<div class=\"leftcol\" id=\"dates-title-%02d\">Weckdatum</div>\n", " ", $alertNumber );
+          printf( "%".$insertCount."s<div class=\"rightcol\" id=\"dates-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['date'] );
           printf( "%".$insertCount."s<br />\n", " " );
         }
         else
         {
           # täglich oder wochentage
-          printf( "%".$insertCount."s<div class=\"leftcol\">Weckdatum</div>\n", " ", $alertNumber );
-          # TODO: wochentage
-          printf( "%".$insertCount."s<div class=\"rightcol\" id=\"once-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['days'] );
+          printf( "%".$insertCount."s<div class=\"leftcol\" id=\"dates-title-%02d\">Tage</div>\n", " ", $alertNumber );
+          printf( "%".$insertCount."s<div class=\"rightcol\" id=\"dates-%02d\">%s</div>\n", " ", $alertNumber, $configArr[$alert]['days'] );
           printf( "%".$insertCount."s<br />\n", " " );
         }
         printf( "%".$insertCount."s<br />\n", " ");          
@@ -126,8 +126,8 @@
     $progConfigObject = json_decode( $response, true );
 ?>
   <body>
-    <input type="hidden" id="autorefresh" value="<?php echo getAutoRefresh($configObject); ?>" /> 
     <div data-role="page" id="index-page" data-theme="<?php echo $configObject['gui_theme']; ?>" >
+      <input type="hidden" id="autorefresh" value="<?php echo getAutoRefresh($configObject); ?>" />
 
       <div data-role="header">
         <!-- /header -->
@@ -146,6 +146,12 @@
               printAlertBlock( $progConfigObject );
             }
           ?>
+          <!-- Neuen Wecker machen -->
+          <div class="ui-grid-solo">
+            <div class="ui-block-a">
+              <input type="button" id="make-new-alert" value="NEUER Wecker" />
+            </div>
+          </div>
           <!-- alle Wecker auf AUS -->
           <div class="ui-grid-solo">
             <div class="ui-block-a">

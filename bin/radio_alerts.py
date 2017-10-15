@@ -19,11 +19,14 @@ class RadioAlerts:
     regex_min = re.compile('^(\d+)m$', re.IGNORECASE)
     regex_std = re.compile('^(\d+)h$', re.IGNORECASE)
     regex_val = re.compile('^(\d+).*$', re.IGNORECASE)
+    regex_date = re.compile('^\d{4}-\d{2}-\d{2}$')
+    regex_time = re.compile('^\d{2}:\d{2}')
 
     def __init__(self, _log: logging.Logger, _alert: dict):
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
+        self.al_working = False # alarm spielt gerade
         self.al_enable = True
         self.al_weekdays = None
         self.al_volume = 0
@@ -36,6 +39,8 @@ class RadioAlerts:
         self.al_type = None
         self.al_devices = []
         self.al_note = None
+        self.al_duration = RadioAlerts.DEFAULT_ALERT_DURATION
+        self.al_alert_thread = None  # wenn self.al_working dann hier der Thread
         #
         self.log.debug("RadioAlerts is instantiating...")
         #
@@ -48,23 +53,25 @@ class RadioAlerts:
         self.al_source_account = _alert.get('source_account', None)
         self.al_volume_incr = self.str2bool(_alert.get('raise_vol', 'false'))
         self.al_volume = int(_alert.get('volume', '21'))
-        _date = _alert.get('alert_date', None)
+        _date = _alert.get('date', None)
         _days = _alert.get('days', None)
-        _time = _alert.get('alert_time', None)
+        _time = _alert.get('time', None)
         _devices = _alert.get('devices', None)
-        if _alert.get('alert_duration', None) is not None:
-            self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('alert_duration', None))
+        if _alert.get('duration', None) is not None:
+            self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('duration').strip())
         else:
             self.al_duration = RadioAlerts.DEFAULT_ALERT_DURATION
         #
-        # Datum, wenn vorhanden
+        # Datum, wenn vorhanden, Datum hat festes Format YYYY-MM-DD
         #
-        if _date is not None and len(_date) > 9:
+        if _date is not None:
+            _date = _date.strip()
+        if _date is not None and RadioAlerts.regex_date.match(_date):
             # es ist ein einmaliger Alarm an einem Datum
             # also keine Wochentage
             self.log.debug("RadioAlert: date is given {}".format(_date))
             try:
-                adate = datetime.strptime(_date, '%Y-%m-%d')
+                adate = datetime.strptime(_date.strip(), '%Y-%m-%d')
                 self.al_date = adate.date()
                 self.al_weekdays = None
                 self.log.info("alert is once at {}".format(_date))
@@ -80,6 +87,7 @@ class RadioAlerts:
             # wochentage (mo,th,we,th,fr,sa,su) | daily | once
             reg_ex = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
             for day in _weekdays:
+                day = day.strip()
                 if day == 'daily':
                     # taeglich. Alles löschen und neu initialisieren
                     self.log.info("dayly alert detected!")
@@ -105,9 +113,11 @@ class RadioAlerts:
                         continue
                     self.log.info("alert at {} detected.".format(day))
         #
-        # Zeit des Alarms
+        # Zeit des Alarms, festes Format: "HH.MM"
         #
         if _time is not None:
+            _time = _time.strip()
+        if _time is not None and RadioAlerts.regex_time.match(_time):
             self.log.debug("time ({}) found. test if correct...".format(_time))
             try:
                 atime = datetime.strptime(_time, '%H:%M')
@@ -125,9 +135,11 @@ class RadioAlerts:
         self.log.debug("alert volume is: {}".format(self.al_volume))
         self.log.debug("alert is raising: {}".format(self.al_volume_incr))
         # Geräte
-        self.al_devices = _devices.split(',')
-        if len(self.al_devices) > 0:
+        _devices_list = _devices.split(',')
+        if len(_devices_list) > 0:
             self.log.debug("al_devices to alert: {}".format(_devices))
+            for dev in _devices_list:
+                self.al_devices.append(dev.strip())
         else:
             self.al_devices.append("all")
             self.log.debug("al_devices to alert: ALL")
@@ -145,7 +157,7 @@ class RadioAlerts:
             if self.al_date < datetime.now().date():
                 # in der Zukunft, Abstand berechnen
                 # erzeuge Datum und Uhrzeit am heutigen Tag
-                dest_datetime = datetime.combine(self.alert_date, self.al_time)
+                dest_datetime = datetime.combine(self.al_date, self.al_time)
                 # mache einen Timestamp daraus
                 dest_timestramp = int(dest_datetime.timestamp())
                 # und wie ist datum/zeit genau jetzt?
@@ -213,6 +225,22 @@ class RadioAlerts:
         return _val.lower() in ('yes', 'true', 't', '1')
 
     @property
+    def alert_thread(self):
+        return self.al_alert_thread
+
+    @alert_thread.setter
+    def alert_thread(self, _alert_thread):
+        self.al_alert_thread = _alert_thread
+
+    @property
+    def alert_working(self):
+        return self.al_working
+
+    @alert_working.setter
+    def alert_working(self, _is_working: bool):
+        self.al_working = _is_working
+
+    @property
     def alert_duration(self):
         """
         Alarmdauer des alarms zurückgeben
@@ -254,6 +282,7 @@ class RadioAlerts:
         """
         self.al_prepairing = _is_prepairing
 
+    @property
     def alert_source(self):
         """
         Gib die Source für das Radio zurück
@@ -292,6 +321,10 @@ class RadioAlerts:
     def alert_volume_incr(self):
         return self.al_volume_incr
 
+    @property
+    def alert_location(self):
+        return self.al_location
+
 
 def main():
     """Hauptprogramm"""
@@ -306,42 +339,11 @@ def main():
     #
     # config
     #
-    cf_ob = ConfigFileObj(log, '../config/alert.ini')
+    cf_ob = ConfigFileObj(log, '../config/test.ini')
     alerts = cf_ob.config_object
-    #
-    # log.debug("alert 01")
-    # al = RadioAlerts(log, alerts['alert-01'])
-    # log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
-    # sleep(2)
-    # del al
-    # log.debug("===============\n\n")
-    # log.debug("alert 02")
-    # al = RadioAlerts(log, alerts['alert-02'])
-    # log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
-    # log.debug("===============\n\n")
-    # sleep(2)
-    # del al
-    # log.debug("alert 03")
-    # al = RadioAlerts(log, alerts['alert-03'])
-    # log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
-    # log.debug("===============\n\n")
-    # sleep(2)
-    # del al
-    # log.debug("alert 04")
-    # al = RadioAlerts(log, alerts['alert-04'])
-    # log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
-    # log.debug("===============\n\n")
-    # sleep(2)
-    # del al
-    # log.debug("alert 05")
-    # al = RadioAlerts(log, alerts['alert-05'])
-    # log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
-    # log.debug("===============\n\n")
-    # sleep(2)
-    # del al
-    log.debug("alert 06")
-    al = RadioAlerts(log, alerts['alert-06'])
-    log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=20)))
+    log.debug("alert 01")
+    al = RadioAlerts(log, alerts['alert-01'])
+    log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=120)))
     for devname in al.alert_devices:
         log.info("device: '{}'".format(devname))
     log.debug("===============\n\n")

@@ -4,8 +4,7 @@
   # 09/2017 D. Marciniak
   #
   # Das Script wird nicht direkt vom Benutzer sondern via JavaScript aus der 
-  # Webseite aufgerufen und gibt Informationen via JSON zurück, bzw führt 
-  # Weckeraktionen aus und gibt Erfolg oder Misserefolg zurück (als JSON String)
+  # Webseite aufgerufen 
   #
 
   # Konfiguration bearbeiten
@@ -28,13 +27,26 @@
       # sende an daemon und warte
       $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
       # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
-      $answer = json_decode( $response, true );
-      # TODO: wenn $answer[0] error ist
-      if( ! isset($answer['error']) )
+      $answerAlert = json_decode( $response, true );
+      # TODO: wenn $answerAlert[0] error ist
+      if( ! isset($answerAlert['error']) )
       {
-        $alertConfig = $answer[$whichAlert];
+        $alertConfig = $answerAlert[$whichAlert];
         $showErrorPage = false;
       }
+      # 
+      # verfügbare geräte abfragen
+      #
+      $request = array('get' => array('devices'));
+      # sende an daemon und warte
+      $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+      # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
+      $answerDevices = json_decode( $response, true );
+      if( ! isset($answerDevices['error']) )
+      {
+        $showErrorPage = false;
+      }
+      
   }
   #
   # Nornal oder Fehler?
@@ -43,10 +55,9 @@
   {
 ?>
   <body>
-    <div data-role="page" id="edit-page" data-dialog="true" data-overlay-theme="<?php echo $configObject['gui_theme']; ?>" data-theme="<?php echo $configObject['gui_theme']; ?>">
-      <p>
-        <?php print_r($answer['error'])?>
-      </p>
+    <div data-role="page" id="edit-page" data-dialog="true" data-overlay-theme="<?php echo $configObject['gui_theme']; ?>" 
+         data-theme="<?php echo $configObject['gui_theme']; ?>">
+      <input type="hidden" id="alert-name" value="<?php echo $whichAlert; ?>" /> 
       <div data-role="header">
         <!-- /header -->
         <h1><?php echo $alertConfig['note']?></h1>
@@ -66,7 +77,7 @@
             <div>Weckdatum</div>
             <input type="text" id="date-picker" data-role="datebox" 
               data-options='{"mode": "calbox", "overrideDateFormat": "%d.%m.%Y", "usePlaceholder": "Datum", 
-                "afterToday": "true", "useClearButton": "true"}'>
+                "afterToday": "true", "useClearButton": "true", "showInitialValue": "true", "useLang":"de" }'>
             </input>
             
             <!-- an welchen Wochentagen - wenn kein Datum gesetzt ist -->
@@ -118,13 +129,19 @@
               data-collapsed-icon="carat-d" data-expanded-icon="carat-u" data-iconpos="right">
               <h4>Geräte</h4>
               <form>
-                <fieldset data-role="controlgroup-2">
-                  <input type="checkbox" name="dev-001" id="dev-001" />
-                  <label for="dev-001">Wg Radio</label>
-                  <input type="checkbox" name="dev-002" id="dev-002" />
-                  <label for="dev-002">Bad Radio</label>
-                  <input type="checkbox" name="dev-003" id="dev-003" />
-                  <label for="dev-003">PD Soundbar</label>
+                <fieldset id="devicesgroup" data-role="controlgroup-2">
+<?php
+  # 
+  # lies vom Daemon die verfügbaren Geräte ein
+  #
+  foreach( $answerDevices as $devName => $propertys )
+  {
+    $insertCount = 18;
+    $devId = strtolower(str_replace(" ", '_', $devName));
+    printf( '%'.$insertCount.'s<input type="checkbox" name="alert-device" id="%s" real_name="%s" />'."\n", ' ', $devId, $devName );
+    printf( '%'.$insertCount.'s<label for="%s">%s</label>'."\n", ' ', $devId, $devName );    
+  }
+?>
                 </fieldset>
               </form>
             </div>
@@ -132,12 +149,14 @@
             <!-- Lautstärke -->
             <form>
               <label for="volume-sl">Lautstärke</label>
-              <input type="range" name="volume-sl" id="volume-sl" min="0" max="100" value="21" data-popup-enabled="true" />
+              <input type="range" name="volume-sl" id="volume-sl" min="0" max="100" value="1" data-highlight="true" data-popup-enabled="true" />
+              <!-- sanft wecken? -->
+              <input type="checkbox" name="raise_vol" id="raise_vol" />
+              <label for="raise_vol">Sanft wecken</label>
+              <!-- Weckdauer -->
+              <label for="alert-duration">Weckdauer</label>
+              <input type="range" name="alert-duration" id="alert-duration" min="5" max="60" value="50" data-highlight="true" data-popup-enabled="true" />
             </form>
-
-            <input type="checkbox" name="volume-incr" id="volume-incr" checked="checked" />
-                  <label for="volume-incr">Sanft wecken</label>
-
           </div>
         </div>
         <div class="ui-grid-solo">
@@ -149,13 +168,13 @@
         <!-- Daten sichern -->
         <div class="ui-grid-solo">
           <div class="ui-block-a">
-            <a href="index.php" role="button" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">SICHERN...</a>
+            <a href="index.php" id="save-alert" data-role="button" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">SICHERN...</a>
           </div>
         </div>
         <!-- zurück ohne Speichern -->
         <div class="ui-grid-solo">
           <div class="ui-block-a">
-            <a href="index.php" data-rel="back" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">ABBRUCH</a>
+            <a href="index.php" data-role="button" data-rel="back" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">ABBRUCH</a>
           </div>
         </div>
         <!-- content -->
@@ -183,7 +202,7 @@
         <!-- content -->
         <div class="ui-grid-solo">
           <div class="ui-block-a">
-            <h3><?php print_r($answer['error']); ?></h3>
+            <h3><?php print_r($answerAlert['error']); ?></h3>
           </div>
         </div>
         <hr />
@@ -191,7 +210,7 @@
         <!-- Zurück -->
         <div class="ui-grid-solo">
           <div class="ui-block-a">
-            <a href="index.php" data-rel="back" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">ZURÜCK</a>
+            <a href="index.php" data-role="button" data-rel="back" class="ui-shadow ui-btn ui-corner-all " data-transition="flip">ZURÜCK</a>
           </div>
         </div>
         <!-- content -->
@@ -201,18 +220,6 @@
         <h4>BOSE Sound Touch Geräte</h4>
       </div><!-- /footer -->
     </div><!-- /page -->
-    <script>
-      console.log("######################## bind date input....");
-      $('input:text#date-picker').bind('datebox', function (e, passed)
-      {
-        alert('New Date Shown: ' + passed.shownDate);
-        alert('Date Selected: ' + passed.selectedDate);
-        alert('Change Type: ' + passed.thisChange);
-        alert('Change amount: ' + passed.thisChangeAmount);
-      });
-    </script>
-
-  console.log("bind date input....OK");    
   </body>
 <?php
   }

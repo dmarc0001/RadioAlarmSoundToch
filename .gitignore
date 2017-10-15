@@ -2,4 +2,7 @@
 .profile
 .recycle/
 .idea/
+.vscode/
 __pychache__/
+bin/__pychache__/
+.bash_history

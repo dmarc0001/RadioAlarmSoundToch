@@ -10,6 +10,7 @@ import signal
 import re
 import socket
 import json
+from config_files_obj import ConfigFileObj
 
 """
 Modul implementiert einen UDP Server welcher auf einem Port auf Verbindungen lauscht unf Kommandos 
@@ -28,7 +29,7 @@ class RadioCommandServer(Thread):
     Objekt zur Kommunikation zwischen den Programmen des Webserver und dem Daeomon für die Radios
     """
 
-    def __init__(self, _log: logging.Logger, _config: dict = None):
+    def __init__(self, _log: logging.Logger, _config: dict = None, _devices_callback = None ):
         """
         Der Konstruktor des Thread
         :param _log: logobjekt
@@ -38,6 +39,7 @@ class RadioCommandServer(Thread):
         self.lock = Lock()
         self.log = _log
         self.config = _config
+        self.available_devices_callback = _devices_callback
         self.s_socket = None
         self.on_config_change = None
         self.is_running = False
@@ -131,6 +133,9 @@ class RadioCommandServer(Thread):
         elif 'set' in cmd:
             self.log.debug("get cmd recognized...")
             return self.__set_cmd_parse(cmd['set'])
+        elif 'delete' in cmd:
+            self.log.debug("DELETE cmd recognized...")
+            return self.__delete_cmd_parse(cmd['delete'])
         else:
             self.log.warning("unknown command recived!")
             return json.dumps({'error': 'unknown command or not implemented yet'}).encode(encoding='utf-8')
@@ -149,26 +154,52 @@ class RadioCommandServer(Thread):
             #
             # welche Anforderung war es
             #
-            if 'config' in sitem:
+            if 'config-id' in sitem:
+                # welche version der CONFIG liegt vor (Änderung???)
+                ConfigFileObj.config_lock.acquire()
+                # { "version": "000000000" }
+                response = json.dumps(self.config['version']).encode(encoding='utf-8')
+                ConfigFileObj.config_lock.release()
+                return response
+            elif 'config' in sitem:
+                # Alarm und der Rest Konfiguration
                 # bei all geht es schnell
                 response = None
                 try:
+                    ConfigFileObj.config_lock.acquire()
                     response = json.dumps(self.config).encode(encoding='utf-8')
                 finally:
+                    ConfigFileObj.config_lock.release()
                     return response
             elif 'all' in sitem:
                 # bei all nur die alarme, nicht global
+                ConfigFileObj.config_lock.acquire()
                 for section in self.config:
                     if re.match(match_pattern, section):
                         if self.config[section] is not None:
                             _answers[section] = self.config[section]
+                ConfigFileObj.config_lock.release()
                 # Alle verfügbaren eingefügt
+            elif 'devices' in sitem:
+                # alle verfügbaren Geräte finden und melden
+                _devices = self.available_devices_callback()
+                if _devices is not None:
+                    for device in _devices:
+                        # für jedes Gerät einen Datensatz machen
+                        dev_info = dict()
+                        dev_info['name'] = device.config.name
+                        dev_info['type'] = device.config.type
+                        dev_info['host'] = device.host
+                        _answers[device.config.name] = dev_info
+                    del _devices
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
                 self.log.debug("*** found: {} ***".format(sitem))
+                ConfigFileObj.config_lock.acquire()
                 if self.config[sitem] is not None:
                     self.log.debug("*** add: {} ***".format(sitem))
                     _answers[sitem] = self.config[sitem]
+                ConfigFileObj.config_lock.release()
             else:
                 self.log.warning("get command not implemented or none alerts match request")
                 return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(encoding='utf-8')
@@ -182,39 +213,66 @@ class RadioCommandServer(Thread):
         :param _cmd: das Kommando als JSON Objekt
         :return:
         """
-        is_successful = True
         for sitem in _cmd:
             #
             # alle sets durch
-            # {"set":[{"alert":"alert-04","enable":"true"}, {"alert":"alert-03","enable":"true"}]}
+            # {"set":[{"alert":"alert-04","enable":"true", ...}, {"alert":"alert-03","enable":"true", ...}]}
             #
             alert_name = sitem['alert']
             self.log.debug("found alert {} with set commands".format(alert_name))
             #
             # nun alle Eigenschaften durch
             #
-            for al_command in sitem:
-                if al_command == 'alert':
+            ConfigFileObj.config_lock.acquire()
+            for set_command in sitem:
+                if set_command == 'alert':
                     continue
-                if al_command == 'enable':
-                    # einen alarm erlauben oder verbieten
-                    self.log.debug( "change enable state for alert {} to {}".format(alert_name, sitem[al_command]))
-                    self.config[alert_name][al_command] = sitem[al_command]
+                # eine  Einstellung schreiben
+                self.log.debug("set property {} to {} for alert {}".format(set_command, sitem[set_command], alert_name))
+                if sitem[set_command] == 'null':
+                    self.config[alert_name][set_command] = " "
                 else:
-                    self.log.warning("set al_command {} not implemented yet".format(al_command))
-                    return json.dumps({'error': 'unknown set al_command {}...'.format(al_command)}).encode(encoding='utf-8')
+                    self.config[alert_name][set_command] = sitem[set_command]
+            v_items = dict()
+            v_items['version'] = int(time())
+            self.config['version'] = v_items
+            ConfigFileObj.config_lock.release()
             # ende der kommandos per alarm
         # ende der alarme
-        if is_successful:
-            # es scheint alles geklappt zu haben
-            self.log.debug("set command for alarm(s) successful!")
-            if self.on_config_change is not None:
-                self.on_config_change(int(time()))
-            return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
-        else:
-            # etwas lief schief
-            self.log.warning("an error has occurred")
-            return json.dumps({'error': 'an error has occurred'}).encode(encoding='utf-8')
+        # es scheint alles geklappt zu haben
+        self.log.debug("set command for alert(s) successful!")
+        if self.on_config_change is not None:
+            self.on_config_change(int(time()))
+        return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
+        # ENDE __set_cmd_parse
+
+    def __delete_cmd_parse(self, _cmd: dict):
+        """
+        Ein DELETE Kommando empfangen, hier bearbeiten
+        :param _cmd: das Kommando als JSON Objekt
+        :return: ergebnis als JSON
+        """
+        for sitem in _cmd:
+            #
+            # alle sets durch
+            # {"delete":[{"alert":"alert-04"}]}
+            #
+            alert_name = sitem['alert']
+            self.log.debug("found alert {} with DELETE command".format(alert_name))
+            ConfigFileObj.config_lock.acquire()
+            if alert_name in self.config:
+                del self.config[alert_name]
+                v_items = dict()
+                v_items['version'] = int(time())
+                self.config['version'] = v_items
+                ConfigFileObj.config_lock.release()
+                if self.on_config_change is not None:
+                    self.on_config_change(int(time()))
+                return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(encoding='utf-8')
+            else:
+                self.log.fatal("to delete alert {} is not found in config...".format(alert_name))
+                ConfigFileObj.config_lock.release()
+                return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
 
     def __make_udp_socket(self):
@@ -223,9 +281,11 @@ class RadioCommandServer(Thread):
         :return:
         """
         # Guck mal ob das passt
+        ConfigFileObj.config_lock.acquire()
         if int(self.config['global']['server_port']) < 1024:
             self.log.error("not an valid port configured, no udp server startet! Program end...")
             self.is_running = False
+            ConfigFileObj.config_lock.release()
             return False
         else:
             self.log.debug("UDP server on addr: %s:%s" % (
@@ -239,8 +299,10 @@ class RadioCommandServer(Thread):
             except OSError as msg:
                 self.log.fatal("exception while socket binding: %s, ABORT!" % msg)
                 self.is_running = False
+                ConfigFileObj.config_lock.release()
                 return False
             self.log.info("try to make udp server socket...OK")
+            ConfigFileObj.config_lock.release()
             return True
             # fertig
 
@@ -257,15 +319,6 @@ class RadioCommandServer(Thread):
             finally:
                 self.log.debug("close udp socket...OK")
         return None
-
-    def set_config(self, _config):
-        """
-        Setze eine neue Configuration, falls notwendig
-        :param _config:
-        :return:
-        """
-        sleep(1)
-        self.config = _config
 
 
 def main():

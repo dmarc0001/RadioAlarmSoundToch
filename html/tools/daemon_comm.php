@@ -9,7 +9,7 @@
     
     if( ! isset ($configObject) )
     {
-      include_once "/var/www/html/config/config.php";
+      include "/var/www/html/config/config.php";
     }
 
     #
@@ -71,7 +71,7 @@
         $stat = FALSE;
         while( $time_to_fail > time() && $stat == FALSE)
         {
-            $stat = socket_recvfrom( $socket , $message , 2048, MSG_DONTWAIT, $addr, $port );
+            $stat = socket_recvfrom( $socket , $message , 4098, MSG_DONTWAIT, $addr, $port );
             # TODO: $stat ist anzahl, $message ist statusmeldung
         }
         socket_close($socket);
