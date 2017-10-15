@@ -68,6 +68,19 @@
         echo $response;
         return;
     }
+    elseif( isset($_GET['getdevices']))
+    {
+        $request = array('get' => array('devices'));
+        # stele die Anfrage beim Server und gib Antwort oder Fehler zurück
+        # dafür noch (on-the-fly) aus der Datenstruktur einen JSON String machen
+        #
+        $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+        #
+        # sende das Ergebnis (JSON String) an den Aufrufer zurück
+        #
+        echo $response;
+        return;
+    }
     elseif( isset($_GET["setstate"]) )
     {
         # 

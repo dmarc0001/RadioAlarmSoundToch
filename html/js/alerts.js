@@ -785,9 +785,11 @@ function saveAlertValues()
   console.log('SAVE ALERT: ' + whichAlert.val() + "..."); 
   //
   // Datum und Zeit, falls gesetzt
-  //
+  // und mit einem Trick auf fest 2 digits formatieren
   var dateTime = $('input#time-picker').datebox('getTheDate');
-  propertyArray.alert_time = dateTime.getHours() + ":" + dateTime.getMinutes();
+  var hourStr =  "000" + dateTime.getHours();
+  var minuteStr = "000" + dateTime.getMinutes();
+  propertyArray.alert_time = hourStr.substr(hourStr.length - 2) + ":" + minuteStr.substr(minuteStr.length -2);
   if( editDate == null )
   {
     propertyArray.alert_date = "null";  
@@ -856,7 +858,7 @@ function saveAlertValues()
     //
     function()
     {
-      devicesArray.push($(this).attr('id'));
+      devicesArray.push($(this).attr('real_name'));
     }
   );
   propertyArray.alert_devices = devicesArray.join();

@@ -9,6 +9,7 @@ import json
 import hashlib
 import os
 import re
+import shutil
 from threading import Lock
 
 config_file = '../config/alert.ini'
@@ -16,6 +17,7 @@ config_file = '../config/alert.ini'
 
 class ConfigFileObj:
     enclosing_dquotes = re.compile(r"(^\"|\"$)")
+    regex_global = re.compile(r'^global$', re.IGNORECASE)
     config_lock = Lock()
 
     def __init__(self, _log: logging.Logger, _file_name: str):
@@ -59,7 +61,11 @@ class ConfigFileObj:
             else:
                 print('section "[{}]" found...'.format(section))
             items = parser.items(section)
-            c_items = dict()
+            # erstelle eine leere vordefinierte Sektion
+            if ConfigFileObj.regex_global.match(section):
+                c_items = ConfigFileObj.__make_default_config()
+            else:
+                c_items = ConfigFileObj.__make_default_entrys()
             for item in items:
                 name = item[0]
                 val = item[1]
@@ -80,6 +86,38 @@ class ConfigFileObj:
         self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config
+
+    @staticmethod
+    def __make_default_entrys():
+        _items = dict()
+        _items['enable'] = False
+        _items['time'] = '06:00'
+        _items['days'] = 'all'
+        _items['date'] = None
+        _items['source'] = 'PRESET_1'
+        _items['raise_vol'] = False
+        _items['volume'] = '23'
+        _items['devices'] = None
+        _items['source_account'] = None
+        _items['note'] = 'standart ALARM'
+        _items['type'] = None
+        _items['location'] = None
+        _items['duration'] = '50m'
+        return _items
+
+    @staticmethod
+    def __make_default_config():
+        _items = dict()
+        _items['loglevel'] = 'warning'
+        _items['server_addr'] = 'localhost'
+        _items['network_timeout'] = '10s'
+        _items['timezone'] = 'UTC + 02:00'
+        _items['gui_theme'] = 'b'
+        _items['server_port'] = '26106'
+        _items['console_log'] = 'True'
+        _items['autorefresh'] = '5s'
+        _items['logfile'] = '/var/log/alarm_clock.log'
+        return _items
 
     @staticmethod
     def __get_hashstr(_config_object: dict):
@@ -128,36 +166,58 @@ class ConfigFileObj:
                 self.log.debug("create section [{}]...".format(section))
             else:
                 print("create section [{}]...".format(section))
-            parser[section] = self.config[section]
+            # eliminiere None al Value
+            _tmp_section = self.config[section]
+            for key in _tmp_section.keys():
+                if _tmp_section[key] is None:
+                    _tmp_section[key] = " "
+            # Sektion einfügen
+            parser[section] = _tmp_section
         ConfigFileObj.config_lock.release()
         #
-        # datei schreiben, zuerst alte umbenennen
+        # eine neue Datei zum schreiben öffnen und schreiben
         #
-        dir_name = os.path.dirname(self.config_file)
-        new_filename = "{}/{}-{}".format(dir_name, strftime("%Y%m%d%H%M%S"), os.path.basename(self.config_file))
+        _new_file = "{}.new".format(self.config_file)
         if self.log is not None:
-            self.log.debug("rename config file to {} ...".format(new_filename))
+            self.log.debug("write to {} ...".format(_new_file))
         else:
-            print("rename config file to {} ...".format(new_filename))
-        os.rename(self.config_file, new_filename)
-        if self.log is not None:
-            self.log.debug("rename config file to {} ...OK".format(new_filename))
-        else:
-            print("rename config file to {} ...OK".format(new_filename))
-        #
-        # eine Datei zum schreiben öffnen
-        #
-        if self.log is not None:
-            self.log.debug("write to {} ...".format(self.config_file))
-        else:
-            print("write to {} ...".format(self.config_file))
-        with open(self.config_file, 'w') as configfile:
+            print("write to {} ...".format(_new_file))
+        with open(_new_file, 'w') as configfile:
             parser.write(configfile)
         configfile.close()
         if self.log is not None:
-            self.log.debug("write to {} ...OK".format(self.config_file))
+            self.log.debug("write to {} ...OK".format(_new_file))
         else:
-            print("write to {} ...OK".format(self.config_file))
+            print("write to {} ...OK".format(_new_file))
+        #
+        # die alte configdatei in sicherung kopieren
+        #
+        dir_name = os.path.dirname(self.config_file)
+        # neuer Dateiname:
+        new_filename = "{}/{}-{}".format(dir_name, strftime("%Y%m%d%H%M%S"), os.path.basename(self.config_file))
+        # kopieren!
+        if self.log is not None:
+            self.log.debug("copy config file to {} ...".format(new_filename))
+        else:
+            print("copy config file to {} ...".format(new_filename))
+        shutil.copyfile(self.config_file, new_filename )
+        #
+        # jetzt die neue config über die alte kopieren
+        #
+        if self.log is not None:
+            self.log.debug("copy new config file to {} ...".format(self.config_file))
+        else:
+            print("copy new config file to {} ...".format(self.config_file))
+        shutil.copyfile(_new_file, self.config_file)
+        #
+        # lösche die alte "new" datei
+        #
+        if self.log is not None:
+            self.log.debug("remove temporary new config file {} ...".format(_new_file))
+        else:
+            print("remove temporary new config file to {} ...".format(_new_file))
+        os.remove(_new_file)
+        #
         self.dict_hash = self.__get_hashstr(self.config)
         return True
 

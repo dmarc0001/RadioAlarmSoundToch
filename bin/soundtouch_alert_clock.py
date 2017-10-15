@@ -114,6 +114,9 @@ class SoundTouchAlertClock:
                 self.__configure_objects()
                 self.current_config_modify_time = self.config_modify_time
                 sleep(1)
+            if int(time()) > self.timestamp_to_scan_devices:
+                # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
+                self.__find_available_devices()
             if self.alert_in_progress is None:
                 # es läuft kein Alarm, also prüfe
                 # ist ein Alarm vorhanden und ist einer in der nahen Zukunft?
@@ -141,7 +144,7 @@ class SoundTouchAlertClock:
                             self.log.warning("this alert is working... not mak an new alert this time")
                             continue
                         # erzeuge einen Weckerthread
-                        play_alert_thread = SoundtouchPlayObject(self.log, alert_devices, c_alert)
+                        play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
                         c_alert.alert_working = True
                         c_alert.alert_thread = play_alert_thread
                         play_alert_thread.start()
@@ -157,9 +160,6 @@ class SoundTouchAlertClock:
                 self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
                 # check mal, ob sich die Modify Zeit des Configfiles verändert hat
                 self.current_config_modify_time = self.__read_mod_time()
-            if int(time()) > self.timestamp_to_scan_devices:
-                # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
-                self.__find_available_devices()
             sleep(.8)
         #
         # beendet
@@ -197,15 +197,16 @@ class SoundTouchAlertClock:
         """
         self.log.debug("search available al_devices")
         # alle eventuell vorhandenen löschen
-        SoundTouchAlertClock.devices_lock.acquire()
-        self.available_devices.clear()
         #
         # finde Geräte im Netzwerk
         #
         self.log.debug("discover soundtouch devices...")
-        self.available_devices = discover_devices(timeout=3)  # Default timeout is 3 seconds
-        self.log.debug("discover soundtouch devices...OK")
+        _available_dev = discover_devices(timeout=3)  # Default timeout is 3 seconds
+        SoundTouchAlertClock.devices_lock.acquire()
+        self.available_devices.clear()
+        self.available_devices = _available_dev.copy()
         SoundTouchAlertClock.devices_lock.release()
+        self.log.debug("discover soundtouch devices...OK")
         self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
         return len(self.available_devices)
 
@@ -214,11 +215,6 @@ class SoundTouchAlertClock:
         Gib kopie einer Liste mit verfügbaten Geräte zurück, sofern vorhanden
         :return:
         """
-        if int(time()) > self.timestamp_to_scan_devices:
-            # Liste zu alt, erneuere sie
-            if self.__find_available_devices() == 0:
-                # keine Geräte, dann ist hier ENDE GeLÄNDE
-                return None
         SoundTouchAlertClock.devices_lock.acquire()
         _cp_list = self.available_devices.copy()
         SoundTouchAlertClock.devices_lock.release()
@@ -228,25 +224,23 @@ class SoundTouchAlertClock:
         """
         Gib das Gerät mit dem Namen XXX als Geräteobjekt zurück, falls vorhanden
         :param _name_to_find: Name des Gerätes
-        :return: GEräteobjekt oder None
+        :return: Geräteobjekt oder None
         """
-        if int(time()) > self.timestamp_to_scan_devices:
-            # Liste zu alt, erneuere sie
-            if self.__find_available_devices() == 0:
-                # keine Geräte, dann ist hier ENDE GeLÄNDE
-                return False
         # aktuelle Liste existiert
-        # Pattern für Verglcih compilieren
+        # Pattern für Vergleich compilieren
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
         SoundTouchAlertClock.devices_lock.acquire()
         for device in self.available_devices:
-            self.log.debug("discovered device: {}, Type: {}, host: {}".format(device.config.name, device.config.type,
-                                                                              device.host))
+            self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
+                                                                                                  device.config.name,
+                                                                                                  device.config.type,
+                                                                                                  device.host))
             if re.match(match_pattern, device.config.name):
                 self.log.debug("destination device found!")
                 SoundTouchAlertClock.devices_lock.release()
                 return device
+        self.log.debug("destination device NOT found!")
         SoundTouchAlertClock.devices_lock.release()
         return None
 
@@ -356,38 +350,6 @@ class SoundTouchAlertClock:
     @staticmethod
     def str2bool(_val: str):
         return _val.lower() in ('yes', 'true', 't', '1')
-
-    def volume_listener(self, volume):
-        """
-        Lautstärke geändert
-        :param volume: neue Lautstärke
-        """
-        self.log.debug("change volume to: {} mute: {}".format(volume.actual, volume.muted))
-
-    def status_listener(self, status):
-        """
-        Status update
-        :param status: neuer Status
-        """
-        self.log.debug("change status, track: {}".format(status.track))
-
-    def preset_listener(self, presets):
-        """
-        Presets geändertt
-        :param presets: neue Presets
-        """
-        for preset in presets:
-            self.log.debug("change presets, name: {}".format(preset.name))
-
-    def zone_status_listener(self, zone_status):
-        """
-        Zohne geändert (mehrere Lautsprecher zusammen als zohne)
-        :param zone_status: neue Zohne
-        """
-        if zone_status:
-            self.log.debug("new zone {}".format(zone_status.master_id))
-        else:
-            self.log.debug('no Zone')
 
     @staticmethod
     def __make_logger(_logfile: str, _my_loglevel, _console_log: bool):

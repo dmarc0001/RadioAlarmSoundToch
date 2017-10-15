@@ -138,7 +138,7 @@
   {
     $insertCount = 18;
     $devId = strtolower(str_replace(" ", '_', $devName));
-    printf( '%'.$insertCount.'s<input type="checkbox" name="alert-device" id="%s" />'."\n", ' ', $devId );
+    printf( '%'.$insertCount.'s<input type="checkbox" name="alert-device" id="%s" real_name="%s" />'."\n", ' ', $devId, $devName );
     printf( '%'.$insertCount.'s<label for="%s">%s</label>'."\n", ' ', $devId, $devName );    
   }
 ?>
