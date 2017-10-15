@@ -4,11 +4,18 @@
 var timerInterval = 5000;
 var timerIsRunning = false;
 var alert_status = '/tools/alerts.php';
+var alert_index = 'index.php';
 var ignoreTrigger = false;
 var regexTrue = /true|yes|1|on/;
 var timerId = null;
 var configId = 0;
 var editDate = null;
+var regex_date = /^\d{4}-\d{2}-\d{2}$/;
+var regex_time = /^\d{2}:\d{2}$/;
+var regex_sec = /^(\d+)s$/i;
+var regex_min = /^(\d+)m$/i;
+var regex_std = /^(\d+)h$/i;
+var regex_val = /^(\d+).*$/i;
 
 //
 // jQuery Mobile: wenn PAGE geänder ist, ausführen...
@@ -100,18 +107,21 @@ function changePageAction(event, ui)
 //
 function initIndexPage()
 {
-  console.log("reread alert status via timer ...");
+  console.log("init index page...");
+  console.debug("reread alert status via timer ...");
   timerFunc();
-  console.log("reread alert status via timer ...OK");
+  console.debug("reread alert status via timer ...OK");
 
-  console.log("init events for all alerts...");
+  console.debug("init events for all alerts...");
+  $('input:button#make-new-alert').click(makeNewAlert)
   $('input:button#all-alerts-off').click(switchOffAlerts);
   $('input:button#all-alerts-on').click(switchOnAlerts);
-  console.log("init events for all alerts...OK");
+  console.debug("init events for all alerts...OK");
 
-  console.log("init events for sigle alerts...");
+  console.debug("init events for sigle alerts...");
   $('input:checkbox[id*=alert-]').change(switchAlert);
-  console.log("init events for sigle alerts...OK");
+  console.debug("init events for sigle alerts...OK");
+  console.log("init index page...OK");
 }
 
 //
@@ -132,13 +142,13 @@ function startRefreshTimer()
       timerInterval = $('input#autorefresh').val() * 1000;
     }
   }
-  console.log("timer loop is " + timerInterval + "ms...");
+  console.log("refresh timer loop is " + timerInterval + "ms...");
   console.debug("initialize autorefresh timer...OK");
   if (timerId == null)
   {
-    console.log("start timer loop..");
+    console.debug("start timer loop..");
     timerId = setInterval(timerFunc, timerInterval);
-    console.log("start timer loop..OK");    
+    console.debug("start timer loop..OK");    
   }  
 }
 
@@ -149,7 +159,7 @@ function stopRefreshTimer()
 {
   if (timerId != null)
   {
-    console.log("deactivate timer...");
+    console.log("deactivate refresh timer...");
     clearInterval(timerId);
     timerId = null;
   }  
@@ -243,7 +253,7 @@ function switchAlert()
       newState = 'true';
     }
     var alSwitch = $(this).attr('id');
-    console.log("ALERT " + alSwitch + " to state: " + newState);
+    console.debug("ALERT " + alSwitch + " to state: " + newState);
     var requestData = { 'setstate': alSwitch, 'enable': newState };
     //
     // JSON URL aufrufen
@@ -265,7 +275,7 @@ function setStatusDataFunc(data)
     // anonyme Funktion für jedes Paar antwort, kommentar
     function (answer, note)
     {
-      console.debug("response: <" + answer + ">, note <" + note + ">");
+      console.debug("setstate response: <" + answer + ">, note <" + note + ">");
     }
   );
 }
@@ -280,7 +290,7 @@ function timerFunc()
     return;
   }
   timerIsRunning = true;
-  console.log("run timerFunc() to reload config...");
+  console.debug("run timerFunc() to check for reload config...");
   //
   // anfrageparameter bauen
   //
@@ -294,7 +304,7 @@ function timerFunc()
     recCheckUpdateFunc      /* die "success" Funktion */
   );
   timerIsRunning = false;
-  console.log("run timerFunc() to reload config...OK");
+  console.debug("run timerFunc() to reload config...OK");
 }
 
 //
@@ -326,8 +336,9 @@ function recCheckUpdateFunc(data)
         {
           //
           // Oh, da muss was gemacht werden, also komplettes update versuchen
+          // TODO: Komplett neuladen oder update?
           //
-          console.debug("new config id recived (" + value + "). Update GUI...");
+          console.log("new config id recived (" + value + "). Update GUI...");
           configId = value;
           updateFunc();
         }
@@ -338,7 +349,7 @@ function recCheckUpdateFunc(data)
 }
 
 //
-// Update der Slider für die alerts
+// Update der Slider/Datumsangaben für die alerts
 // (kann ja auch von anderem Clienten verändert werden)
 //
 function updateFunc()
@@ -348,7 +359,7 @@ function updateFunc()
     return;
   }
   timerIsRunning = true;
-  console.log("run updateFunc() to reload timer data...");
+  console.debug("run updateFunc() to reload config data to GUI...");
   //
   // anfrageparameter bauen
   //
@@ -375,17 +386,29 @@ function recStatusDataFunc(data)
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
   // Ebene 2 == key: Wertename: value: Wert
   //
-  console.debug("recived data from statusrequest...")
+  console.debug("recived data from updateFunc...")
+  // 
+  // checke ob die alarme weiniger/mehr oder einer komplett verändert ist
   //
+  if( hasAlertsCountChanged(data) )
+  {
+    console.warn("alerts has strong changed, reload complete...");
+    loadPageWithoutCache( alert_index );
+    return;
+  }
+  //
+  // ich mache doch eher ein update
   // zunächst ebene 1 durchlaufen, die Alarmnamen
   //
   $.each(data,
-    // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
+    // anonyme Funktion für jedes Paar value_name, value des Objektes "data" via "each" aufgerufen
     function (value_name, value)
     {
       if (value_name == 'error')
       {
         console.error("while updateFunc(): error recived!");
+        loadPageWithoutCache( alert_index );
+        return;
       }
       else
       {
@@ -400,33 +423,111 @@ function recStatusDataFunc(data)
 }
 
 //
+// erkenne, ob sich Anzahl oder Namen der Alarme verändert haben
+//
+function hasAlertsCountChanged( data )
+{
+  _retValue = false;
+  $.each(data,
+    // anonyme Funktion für jedes Paar value_name, value des Objektes "data" via "each" aufgerufen
+    function (value_name, value)
+    {
+      if( _retValue )
+      {
+        // da war schon ein Fehler, den rest kann ich dann sparen
+        return;
+      }
+      if(value_name == 'error')
+      {
+        console.error("while updateFunc(): error recived!");
+        _retValue = true;
+        return;
+      }
+      else
+      {
+        console.debug("check if is '" + value_name + "' in DOM...");
+        if( $('hr#' + value_name).length == 0 )
+        {
+          console.info("'" + value_name + "' is NOT in DOM, alerts have changed!");
+          _retValue = true;
+          return;
+          }
+        console.debug("check if alerts name is changed...");
+        if( $('label#' + value_name).length == 0 )
+        {
+          console.info("label for alert '" + value_name + "' is NOT in DOM, alerts have changed!");
+          _retValue = true;
+          return;
+          }
+        if( $('label#' + value_name).html() != value['note'] )
+        {
+          console.info("label for alert '" + value_name + "' has changed, alerts have changed!");
+          _retValue = true;
+          return;
+        }
+      }
+    }
+  );
+  return(_retValue);
+}
+
+//
 // setze oder ändere in der INDEX GUI
 //
 function updateAlertTimeStamp(value_name, propertys)
 {
   // welcher Eintrag ist es
-  console.info("value_name: " + value_name + ", elem: " + value_name.replace('alert', 'times'));
+  console.debug("value_name: " + value_name + ", elem: " + value_name.replace('alert', 'times'));
+  var currAlertDateElem = $('div#' + value_name.replace('alert', 'dates'));
   var currAlertTimeElem = $('div#' + value_name.replace('alert', 'times'));
-  var currAlertDateElem = $('div#' + value_name.replace('alert', 'once'));
+  var currAlertDateTitleElem = $('div#' + value_name.replace('alert', 'dates-title'));
   //
   // so, jetzt überlegen was passieren soll
-  // Zeit...
+  // Zeit verändert?
   //
-  if( currAlertTimeElem.html() != propertys['alert_time'])
+  if( currAlertTimeElem.html() != propertys['time'] ) 
   {
-    // ok, ich verändere den Wert mal
-    console.info("alert_time_name: " + value_name + ", change content from : " + currAlertTimeElem.html() + " to : " + propertys['alert_time']);
-    currAlertTimeElem.text(propertys['alert_time']);
+    _timestr = propertys['time'];
+    if( propertys['time'].length > 0 && propertys['time'].match(regex_time) )
+    {
+      // ZEIT, also an verschiedenen Tagen
+      console.debug("alert: " + value_name + ", set : " + currAlertTimeElem.html() + " to : " + propertys['time']);
+      currAlertTimeElem.text(propertys['time']);
+    }
+    else
+    {
+      console.warn("alert: " + value_name + ", has no time in params! display warning!");
+      currAlertTimeElem.text('- ??? -');
+    }
   }
   //
-  // Datum
+  // Datum oder Tage?
   //
-  if( currAlertDateElem.html() != propertys['alert_date'])
+  if( propertys['date'].length > 0 && propertys['date'].match(regex_date) )
   {
-    // ok, ich verändere den Wert mal
-    console.info("alert_date_name: " + value_name + ", change content from : " + currAlertDateElem.html() + " to : " + propertys['alert_date']);
-    currAlertDateElem.text(propertys['alert_date']);
+    // DATUM, also auch einmalig
+    // teste nicht auf Änderung, einfach neu setzten...
+    //
+    console.debug("alert: " + value_name + ", set alert date to " +  propertys['date']);
+    currAlertDateTitleElem.text('Datum:');
+    currAlertDateElem.text(propertys['date']);
+    return;
   }
+  //
+  // dan kann ja nur noch Tage da sein
+  //
+  if( propertys['days'].length > 1 )
+  {
+    console.debug("alert: " + value_name + ", set alert days to " +  propertys['days']);
+    currAlertDateTitleElem.text('Tage:');
+    currAlertDateElem.text(propertys['days']);
+    return;
+  }
+  //
+  // NOTFALL, nix zum eintragen
+  //
+  currAlertDateTitleElem.text('REPEAT:');
+  currAlertDateElem.text('- ??? -');
 }
 
 //
@@ -445,16 +546,13 @@ function updateAlertSlider(value_name, propertys)
   //
   if (currSlider.is(':checked') != alarmIsActive)
   {
-    console.log("switch for " + value_name + " was changed, trigger switch...");
+    console.debug("switch for " + value_name + " was changed, trigger switch...");
     ignoreTrigger = true
     currSlider.prop('checked', !alarmIsActive).trigger('click');
     ignoreTrigger = false
   }
-  //
-  // TODO: Weckzeit, Weckdatum, Titel (note) verändert
-  // oder Tiemr dazu/entfernt
-  //
 }
+
 
 /*#############################################################################
 ####                                                                       ####
@@ -468,7 +566,7 @@ function updateAlertSlider(value_name, propertys)
 function initEditPage()
 {
   var alertName = $('input#alert-name').val();
-  console.debug('edit page for alert: ' + alertName);
+  console.log('init edit page for alert: ' + alertName + "...");
   console.debug("init edit page bindings...");
   // leeren...
   editDate = null;
@@ -508,6 +606,7 @@ function initEditPage()
   // Funktion beim klick auf SICHERN
   //
   $('a#save-alert').click(saveAlertValues);
+  console.log('init edit page for alert: ' + alertName + "...OK");
 }
 
 //
@@ -515,7 +614,7 @@ function initEditPage()
 //
 function updateEditGUI(alertName)
 {
-  console.log('ask alert properties (' + alertName + ')...');
+  console.debug('ask alert properties (' + alertName + ')...');
   //
   // anfrageparameter bauen
   //
@@ -542,7 +641,7 @@ function recAlertStatusData(data)
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
   // Ebene 2 == key: Wertename: value: Wert
   //
-  console.debug("recived data from statusrequest...")
+  console.debug("recived data from updateEditGUI...")
   //
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
   //
@@ -558,10 +657,10 @@ function recAlertStatusData(data)
       {
         console.debug("recived status: '" + value_name + "' found. Update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
-        $('input#time-picker').datebox('setTheDate', propertys['alert_time'] );
-        if(propertys['alert_date'].length > 4 )
+        $('input#time-picker').datebox('setTheDate', propertys['time'] );
+        if(propertys['date'].length > 4 )
         {
-          $('input#date-picker').datebox('setTheDate', propertys['alert_date'] );
+          $('input#date-picker').datebox('setTheDate', propertys['date'] );
         }
         else
         {
@@ -572,29 +671,22 @@ function recAlertStatusData(data)
         // Wochentage durchlaufen
         // 
         daysArr = propertys['days'].split(',');
+
         // Jetzt für alle Tage prüfen und setzen
-        var d_checked = false;
         // Montag
-        if( $.inArray('mo', daysArr) > -1 ) {d_checked = true;} else { d_checked = false; }
-        $('input#cb-monday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('mo', daysArr) > -1 ) { editCheckboxState( $('input#cb-monday'), true ); } else { editCheckboxState( $('input#cb-monday'), false ); }
         // Dienstag
-        if( $.inArray('tu', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-tuesday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('tu', daysArr) > -1 ) { editCheckboxState( $('input#cb-tuesday'), true ); } else { editCheckboxState( $('input#cb-tuesday'), false ); }
         // Mittwoch
-        if( $.inArray('we', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-wednesday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('we', daysArr) > -1 ) { editCheckboxState( $('input#cb-wednesday'), true ); } else { editCheckboxState( $('input#cb-wednesday'), false ); }
         // Donnerstag
-        if( $.inArray('th', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-thursday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('th', daysArr) > -1 ) { editCheckboxState( $('input#cb-thursday'), true ); } else { editCheckboxState( $('input#cb-thursday'), false ); }
         // Freitag
-        if( $.inArray('fr', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-friday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('fr', daysArr) > -1 ) { editCheckboxState( $('input#cb-friday'), true ); } else { editCheckboxState( $('input#cb-friday'), false ); }
         // Samstag
-        if( $.inArray('sa', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-saturday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('sa', daysArr) > -1 ) { editCheckboxState( $('input#cb-saturday'), true ); } else { editCheckboxState( $('input#cb-saturday'), false ); }
         // Sonntag
-        if( $.inArray('so', daysArr) ) {d_checked = true;} else { d_checked = false;}
-        $('input#cb-sunday').attr('checked', 'checked', d_checked).checkboxradio('refresh');
+        if( $.inArray('su', daysArr) > -1 ) { editCheckboxState( $('input#cb-sunday'), true ); } else { editCheckboxState( $('input#cb-sunday'), false ); }
         //
         // Jetzt Sender wählen, vorerst geht nur PRESET_1 bis PRESET_6
         // ist RADIO, sollte also immer nur einer aktiviert sein
@@ -641,12 +733,12 @@ function recAlertStatusData(data)
           if($.inArray(_avDeviceId, alarmDevices) > -1 )
           {
             console.debug("Device: " + _avDeviceId + " is in avaivible devices.");
-            $('input#'+ _avDeviceId).attr('checked', 'checked', d_checked).checkboxradio('refresh');
+            editCheckboxState( $('input#'+ _avDeviceId), true );
           }
           else
           {
             console.debug("Device: " + _avDeviceId + " is NOT in avaivible devices.");
-            $('input#'+ _avDeviceId).removeAttr('checked').checkboxradio('refresh');
+            editCheckboxState( $('input#'+ _avDeviceId), false );
           }
         }
         //
@@ -656,12 +748,31 @@ function recAlertStatusData(data)
         //
         // Lautstärke einblenden oder nicht
         //
-        $('input#raise_vol').prop('checked', propertys['raise_vol']);
+        editCheckboxState( $('input#raise_vol'), propertys['raise_vol'] == 'true' );
+        //
+        // Dauer des Weckens (5 bis 60 Minuten)
+        // Angabe ohne Wert oder s == Sekunden, m Minuten, h stunden
+        //
+        var currentDuration = getSecondsFromString( propertys['duration'] );
+        if( currentDuration < ( 5 * 60 ) )
+        {
+          // Minimalzeit braucht es ja schon...
+          currentDuration = 5 * 60;
+        }
+        if( currentDuration > ( 60 * 60 ) )
+        {
+          // maximal eine Stunde bittesehr
+          currentDuration = 60 * 60;
+        }
+        // bereit den slider zu setzten...
+        var durationMinutes = currentDuration / 60;
+        $('input#alert-duration').val(durationMinutes).slider('refresh');
       }
     }
   );
   console.debug("recived data from statusrequest...DONE.")
 }
+
 
 //
 // Funktion zum sichern eines ALARMES
@@ -671,7 +782,7 @@ function saveAlertValues()
   var whichAlert = $('input#alert-name');
   var propertyArray = new Object();
 
-  console.debug('SAVE ALERT: ' + whichAlert.val()); 
+  console.log('SAVE ALERT: ' + whichAlert.val() + "..."); 
   //
   // Datum und Zeit, falls gesetzt
   //
@@ -762,6 +873,10 @@ function saveAlertValues()
   //
   propertyArray.alert_raise_vol = $('input#raise_vol').is(':checked');
   //
+  // alarmlänge, der slöider speichert in minuten...
+  //
+  propertyArray.alert_duration = $('input#alert-duration').val() + "m";
+  //
   // anfrageparameter bauen
   //
   propertyArray['edit-alert'] = whichAlert.val();
@@ -774,6 +889,8 @@ function saveAlertValues()
     requestData,            /* die GET Parameter */
     recAlertSave            /* die "success" Funktion */
   );
+  console.log('SAVE ALERT: ' + whichAlert.val() + "...OK"); 
+ 
 }
 
 //
@@ -807,7 +924,16 @@ function recAlertSave(data)
   console.debug("recived data from saverequest...OK")
 }
 
-
+/*#############################################################################
+####                                                                       ####
+#### NEUER ALARM                                                           ####
+####                                                                       ####
+#############################################################################*/
+function makeNewAlert()
+{
+  console.error('NEW ALERT: not implemented yet');
+  alert('neuer ALARM -> rufe edit mit neuem alarm auf...');
+}
 
 /*#############################################################################
 ####                                                                       ####
@@ -821,6 +947,7 @@ function initDeletePage()
   var alertName = $('input#alert-name').val();
   $('a#delete-alert').click(doDeleteAlert);
   updateDeleteGUI(alertName);
+  console.log("initDeletePage()...OK");
 }
 
 //
@@ -832,15 +959,15 @@ function doDeleteAlert()
   //
   // lösche den Alarm von der Konfiguration
   //
-  console.log('delete alert ' + alertName + ' from config...');
+  console.debug('delete alert ' + alertName + ' from config...');
   deleteAlertFromConfig(alertName);
-  console.log('delete alert ' + alertName + ' from config...');
+  console.debug('delete alert ' + alertName + ' from config...');
   //
   // lade die INDEX Seite NEU
   //
-  console.log('change page to index...');
-  $.mobile.changePage("index.php", { transition: "flip", changeHash: true, reloadPage: true } );
-  console.log('change page to index...OK');
+  console.debug('change page to index...');
+  loadPageWithoutCache( alert_index );
+  console.debug('change page to index...OK');
 }
 
 //
@@ -862,11 +989,11 @@ function deleteAlertFromConfig(alertName)
     requestData,                  /* die GET Parameter */
     recAlertDelete                /* die "success" Funktion */
   );
+  console.log('alert delete call (' + alertName + ')...OK');
 }
 
 function recAlertDelete(data)
 {
-
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
@@ -895,7 +1022,7 @@ function recAlertDelete(data)
 
 
 //
-// hole die aktuellen Einstellugnen des Alarms
+// hole die aktuellen Einstellugnen des Alarms vor dem löschen zur Anzeige
 //
 function updateDeleteGUI(alertName)
 {
@@ -913,6 +1040,7 @@ function updateDeleteGUI(alertName)
     requestData,                  /* die GET Parameter */
     recAlertDeleteStatusData      /* die "success" Funktion */
   );
+  console.log('ask alert properties (' + alertName + ')...OK');
 }
 
 //
@@ -942,12 +1070,69 @@ function recAlertDeleteStatusData(data)
       {
         console.debug("recived status: '" + value_name + "' found. Update...");
         // Ebene 2, für den Kanal das Objekt der Wertepaare durchlaufen
-        $('input#delete-alert-time').val(propertys['alert_time']);
-        $('input#delete-alert-date').val(propertys['alert_date']);
+        $('input#delete-alert-time').val(propertys['time']);
+        $('input#delete-alert-date').val(propertys['date']);
       }
     }
   );
   console.debug("recived data from statusrequest...DONE.")
 }
 
+
+/*#############################################################################
+####                                                                       ####
+#### UTILITY Funktionen                                                    ####
+####                                                                       ####
+#############################################################################*/
+
+//
+// wechsle ohne caching zur neuen Seite mit transistion
+//
+function loadPageWithoutCache( pageUrl )
+{
+  var _nocache = "?nocache=" + Date.now();
+  this.document.location.href = pageUrl + _nocache;  
+}
+
+//
+// Funktion zum setzen/loschen einer Checkbox
+//
+function editCheckboxState( checkboxElem, newState )
+{
+  if( newState )
+  {
+    // checkbox zu CHECKED
+    checkboxElem.attr('checked', 'checked', true ).checkboxradio('refresh');
+  }
+  else
+  {
+    // checkbox unchcecked
+    checkboxElem.removeAttr('checked').checkboxradio('refresh');
+  }
+}
+
+//
+// gib aus einem String a la 30s oder 10m die Sekunden zurück
+//
+function getSecondsFromString( secStr )
+{
+  if(secStr.match(regex_sec))
+  {
+    return(secStr.match(regex_val)[1]); 
+  }
+  if(secStr.match(regex_min))
+  {
+    return( secStr.match(regex_val)[1] * 60 ); 
+  }
+  if(secStr.match(regex_std))
+  {
+    return(secStr.match(regex_val)[1] * 60 * 60 ); 
+  }
+  if(secStr.match(regex_val))
+  {
+    return(secStr); 
+  }
+  console.error( "time distance string (" + secStr + ") is not an valid string");
+  return(0);
+}
 

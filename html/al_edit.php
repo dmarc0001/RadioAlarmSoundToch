@@ -150,11 +150,13 @@
             <form>
               <label for="volume-sl">Lautstärke</label>
               <input type="range" name="volume-sl" id="volume-sl" min="0" max="100" value="1" data-highlight="true" data-popup-enabled="true" />
+              <!-- sanft wecken? -->
+              <input type="checkbox" name="raise_vol" id="raise_vol" />
+              <label for="raise_vol">Sanft wecken</label>
+              <!-- Weckdauer -->
+              <label for="alert-duration">Weckdauer</label>
+              <input type="range" name="alert-duration" id="alert-duration" min="5" max="60" value="50" data-highlight="true" data-popup-enabled="true" />
             </form>
-
-            <input type="checkbox" name="raise_vol" id="raise_vol" checked="checked" />
-                  <label for="raise_vol">Sanft wecken</label>
-
           </div>
         </div>
         <div class="ui-grid-solo">

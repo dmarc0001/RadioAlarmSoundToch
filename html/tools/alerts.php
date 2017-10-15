@@ -122,27 +122,32 @@
         alert-xx
 
         -devices = bad radio
-        -alert_date = 
-        -alert_time = 21:34
+        -date = 
+        -time = 21:34
         -source = PRESET_1
         -raise_vol = true
         source_account = 
         note = Dirks Reset Test 2
         type = 
         location = 
+        duration = 
         -volume = 35
         -days = mo,tu,we,th,fr
         */
         $whichAlert = $_GET["edit-alert"];
-        $alert_devices = null;
-        $alert_enable = null;
-        $alert_time = null;
-        $alert_days = null;
-        $alert_date = null;
-        $alert_source = null;
-        $alert_raise_vol = null;
-        $alert_volume = null;
-        $alert_note = null;
+        unset($alert_devices);
+        unset($alert_enable);
+        unset($alert_time);
+        unset($alert_days);
+        unset($alert_date);
+        unset($alert_source);
+        unset($alert_raise_vol);
+        unset($alert_volume);
+        unset($alert_note);
+        unset($alert_duration);
+        unset($alert_source_account);
+        unset($alert_type);
+        unset($alert_location);
 
         $alertEdArray = array();
         $editArray = array();
@@ -161,19 +166,26 @@
         if(isset($_GET["alert_date"]))
         {
             $alert_date = $_GET["alert_date"];
-            $alert_days = null;
+            if(preg_match( '/null/', $alert_date))
+            {
+              unset($alert_date);  
+            }
+            else
+            {
+              unset($alert_days);
+            }
         }
         # welche SOURCE wird gesetzt (TODO: momentan nur PRESETS)
         if(isset($_GET["alert_source"]))
         {
-            if($_GET["alert_source"].preg_match('/^PRESET_[123456]$/'))
+            if( preg_match('/^PRESET_[123456]$/', $_GET["alert_source"]))
             {
                 $alert_source = $_GET["alert_source"];
             }
             // TODO: abhängig von der source noch andere Parameter...
         }
         # soll die Lautstärke langsam hochgedrecht werden?
-        if(isset($_GET['aleret_raise_vol']))
+        if(isset($_GET['alert_raise_vol']))
         {
             $alert_raise_vol = $_GET['alert_raise_vol'];
         }
@@ -192,11 +204,27 @@
         {
             $alert_devices = $_GET['alert_devices'];
         }
+        if(isset($_GET['alert_source_account']))
+        {
+            $alert_source_account = $_GET['alert_source_account'];
+        }
+        if(isset($_GET['alert_type']))
+        {
+            $alert_type = $_GET['alert_type'];
+        }
+        if(isset($_GET['alert_location']))
+        {
+            $alert_location = $_GET['alert_location'];
+        }
+        if(isset($_GET['alert_duration']))
+        {
+            $alert_duration = $_GET['alert_duration'];
+        }
         #
         # jetzt Logik für die Plausibilität
         #
         # keine Geräte, kein alarm
-        if( $alert_devices != null and strlen($alert_devices) == 0 )
+        if( isset($alert_devices) and strlen($alert_devices) == 0 )
         {
             $alert_enable = 'false';
         }
@@ -205,13 +233,19 @@
         #
         # zu sendendes Array zusammenbauen
         #
-        if($alert_enable != null) {$editArray['alert_enable'] = $alert_enable;}
-        if($alert_time != null) {$editArray['alert_time'] = $alert_time;}
-        if($alert_days != null) {$editArray['alert_days']= $alert_day;}
-        if($alert_date != null) {$editArray['alert_date'] = $alert_date;}
-        if($alert_source != null) {$editArray['source'] = $alert_source;}
-        if($alert_raise_vol != null) {$editArray['raise_vol'] = $alert_raise_vol;}
-        if($alert_volume != null) {$editArray['volume'] = $alert_volume;}
+        if(isset($alert_enable)) {$editArray['enable'] = $alert_enable;}
+        if(isset($alert_time)) {$editArray['time'] = $alert_time;}
+        if(isset($alert_days)) {$editArray['days']= $alert_days;}
+        if(isset($alert_date)) {$editArray['date'] = $alert_date;}
+        if(isset($alert_source)) {$editArray['source'] = $alert_source;}
+        if(isset($alert_raise_vol)) {$editArray['raise_vol'] = $alert_raise_vol;}
+        if(isset($alert_volume)) {$editArray['volume'] = $alert_volume;}
+        if(isset($alert_devices)) {$editArray['devices'] = $alert_devices;}
+        if(isset($alert_source_account)) {$editArray['source_account'] = $alert_source_account;}
+        if(isset($alert_note)) {$editArray['note'] = $alert_note;}
+        if(isset($alert_type)) {$editArray['type'] = $alert_type;}
+        if(isset($alert_location)) {$editArray['location'] = $alert_location;}
+        if(isset($alert_duration)) {$editArray['duration'] = $alert_duration;}
         #
         # erzeuge die Datenstruktur für das Kommando an den Daemon
         #
