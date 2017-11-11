@@ -29,7 +29,7 @@ class RadioCommandServer(Thread):
     Objekt zur Kommunikation zwischen den Programmen des Webserver und dem Daeomon für die Radios
     """
 
-    def __init__(self, _log: logging.Logger, _config: dict = None, _devices_callback = None ):
+    def __init__(self, _log: logging.Logger, _config: dict = None, _devices_callback=None):
         """
         Der Konstruktor des Thread
         :param _log: logobjekt
@@ -202,7 +202,8 @@ class RadioCommandServer(Thread):
                 ConfigFileObj.config_lock.release()
             else:
                 self.log.warning("get command not implemented or none alerts match request")
-                return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(encoding='utf-8')
+                return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(
+                    encoding='utf-8')
         # ende alle Kommandoeinträge
         # jetz Ergebnis zurück schicken
         return json.dumps(_answers).encode(encoding='utf-8')
@@ -220,6 +221,22 @@ class RadioCommandServer(Thread):
             #
             alert_name = sitem['alert']
             self.log.debug("found alert {} with set commands".format(alert_name))
+            #
+            # wenn es ein NEUER Eintrag wird
+            #
+            if alert_name == 'new':
+                # neuen Eintrag vorbereiten
+                new_item = ConfigFileObj.get_empty_configitem()
+                alert_num = self.__get_free_alert_number()
+                if alert_num is None:
+                    self.log.error("set new config item failed, not free alert number found!")
+                    return json.dumps({'error': 'set new config item failed, not free alertnumber found!'}).encode(
+                        encoding='utf-8')
+                #
+                # erzeuge neuen Eintrag in der Config
+                #
+                alert_name = "alert-{num:02d}".format(num=alert_num)
+                self.config[alert_name] = new_item
             #
             # nun alle Eigenschaften durch
             #
@@ -246,6 +263,26 @@ class RadioCommandServer(Thread):
         return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
 
+    def __get_free_alert_number(self):
+        """
+        suche die nächste freie Alarmnummer fur neuen alarm
+        :return:
+        """
+        exist_alerts = dict()
+        # alle existierenden in ein dict
+        for section in self.config:
+            exist_alerts[section] = True
+        #
+        # jetzt das erste finden, welches NICHT existiert
+        #
+        for idx in range(99):
+            alert_num = "alert-{num:02d}".format(num=idx)
+            # ist der key noch nicht vorhanden?
+            if alert_num not in exist_alerts:
+                # der ist noch frei
+                return idx
+        return None
+
     def __delete_cmd_parse(self, _cmd: dict):
         """
         Ein DELETE Kommando empfangen, hier bearbeiten
@@ -268,12 +305,14 @@ class RadioCommandServer(Thread):
                 ConfigFileObj.config_lock.release()
                 if self.on_config_change is not None:
                     self.on_config_change(int(time()))
-                return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(encoding='utf-8')
+                return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(
+                    encoding='utf-8')
             else:
                 self.log.fatal("to delete alert {} is not found in config...".format(alert_name))
                 ConfigFileObj.config_lock.release()
-                return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(encoding='utf-8')
-        # ENDE __set_cmd_parse
+                return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(
+                    encoding='utf-8')
+                # ENDE __set_cmd_parse
 
     def __make_udp_socket(self):
         """

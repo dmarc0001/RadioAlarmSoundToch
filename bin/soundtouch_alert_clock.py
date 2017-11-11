@@ -118,6 +118,7 @@ class SoundTouchAlertClock:
                 # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
                 self.__find_available_devices()
             if self.alert_in_progress is None:
+                #
                 # es läuft kein Alarm, also prüfe
                 # ist ein Alarm vorhanden und ist einer in der nahen Zukunft?
                 # (wenn ja, Radios suchen und testen ob verfügbar)
@@ -150,7 +151,9 @@ class SoundTouchAlertClock:
                         play_alert_thread.start()
                         # TODO: gelegentlich prüfen...
             else:
+                # TODO: markierung prüfen, vorher setzten
                 # ein Alarm läuft, prüfe ob er beendet ist
+                self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?

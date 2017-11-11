@@ -154,7 +154,7 @@ class RadioAlerts:
         :return: Anzahl Sekunden zum nächsten Alarm, falls der Abstand geringer ist als 60 Minuten, sonst None
         """
         if self.al_date is not None:
-            # ok, einmalige Sache, ist das in der Zukunft?
+            # ok, einmalige Sache, ist das Datum in der Zukunft?
             if self.al_date < datetime.now().date():
                 # in der Zukunft, Abstand berechnen
                 # erzeuge Datum und Uhrzeit am heutigen Tag
@@ -164,24 +164,26 @@ class RadioAlerts:
                 # und wie ist datum/zeit genau jetzt?
                 now_timestaqmp = int(time())
                 time_diff = dest_timestramp - now_timestaqmp
+                # ist der Alarm vergangenheit?
                 if time_diff < -600:
                     # sorge dafür, dass das erledigt ist
                     self.al_done = True
                 if min_sec_future < time_diff < max_sec_future:
                     # in max 60 Sekunden in der Zukunft
-                    self.log.debug("once event < 60 sec in the future...")
+                    self.log.debug("once event less than {} sec in the future...".format(max_sec_future))
                     return time_diff
                 else:
                     return None
                     # einmalig erst mal abgearbeitet
         # Kein Datum gegeben, könnte als täglich oder an bestimmten Tagen sein
         # dieser wochentag oder täglich?
+        # 7 stehr hier für täglich
         curr_day_number = datetime.now().weekday()
         if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
             # jeden Tag oder dieser Wochentag, also guck mal wie die Differenz ist
             # erzeuge die Uhrzeit am heutigen Tag
             dest_datetime = datetime.combine(datetime.now().date(), self.al_time)
-            # mache Timestamp daraus
+            # mache einen Timestamp für den alarmzeitpunkt
             dest_timestramp = int(dest_datetime.timestamp())
             # und wie ist datum/zeit genau jetzt?
             now_timestaqmp = int(time())
@@ -194,11 +196,12 @@ class RadioAlerts:
                 self.al_done = False
             if min_sec_future < time_diff < max_sec_future and not self.al_done:
                 # in max 60 Sekunden in der Zukunft, wenn noch nicht erledigt
-                self.log.debug("repeatable event < 60 sec in the future...")
+                self.log.debug("repeatable event less than {} sec in the future...".format(max_sec_future))
                 return time_diff
             else:
                 return None
-        # weder einmalig noch wiederholung
+        # weder einmalig noch wiederholung, dann ...und tschüss
+        self.log.debug("not an repeatable or an single alert, return with None...")
         return None
 
     @staticmethod

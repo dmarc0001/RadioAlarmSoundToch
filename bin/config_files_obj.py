@@ -74,7 +74,7 @@ class ConfigFileObj:
                 else:
                     print("  [{}] => '{}' = '{}'".format(section, name, val))
                 c_items[name] = val
-                new_config[section] = c_items
+            new_config[section] = c_items
         ConfigFileObj.config_lock.acquire()
         seclist = list(self.config.keys())
         for section in seclist:
@@ -86,6 +86,10 @@ class ConfigFileObj:
         self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config
+
+    @staticmethod
+    def get_empty_configitem():
+        return ConfigFileObj.__make_default_entrys()
 
     @staticmethod
     def __make_default_entrys():

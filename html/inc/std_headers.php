@@ -22,6 +22,6 @@
     <script src="lib/DateBox-4.2.3/js/jtsage-datebox.i18n.de.utf8.js"></script>
     <!-- projektspezifische Einstellungen -->
     <link rel="stylesheet" href="css/dimensions.css" />
-    <script src="js/alerts.js"></script>
+    <script src="js/alerts-idx.js"></script>
   </head>
 

@@ -149,7 +149,7 @@
           <!-- Neuen Wecker machen -->
           <div class="ui-grid-solo">
             <div class="ui-block-a">
-              <input type="button" id="make-new-alert" value="NEUER Wecker" />
+              <a href="al_edit.php?alert=new" role="button" id="make-new-alert" class="ui-shadow ui-btn ui-corner-all" data-transition="flip">NEUER Wecker</a>
             </div>
           </div>
           <!-- alle Wecker auf AUS -->
