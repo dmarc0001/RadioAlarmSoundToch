@@ -1,0 +1,5 @@
+#!/bin/bash
+#
+# starte den Soundtouch Daeomon im Hintergrund 
+
+nohup su soundtouch -c "/usr/bin/python3 /var/www/bin/soundtouch_alert_clock.py" &
