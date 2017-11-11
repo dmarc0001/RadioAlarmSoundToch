@@ -132,6 +132,7 @@ class RadioAlerts:
         #
         # etwas debugging
         #
+        self.log.debug("alert source is: {}".format(self.al_source))
         self.log.debug("alert volume is: {}".format(self.al_volume))
         self.log.debug("alert is raising: {}".format(self.al_volume_incr))
         # Geräte
@@ -211,10 +212,10 @@ class RadioAlerts:
             return int(m.group(1))
         if re.match(RadioAlerts.regex_min, _dur_str):
             m = re.match(RadioAlerts.regex_min, _dur_str)
-            return int(m.group(1) * 60)
+            return int(m.group(1)) * 60
         if re.match(RadioAlerts.regex_std, _dur_str):
             m = re.match(RadioAlerts.regex_std, _dur_str)
-            return int(m.group(1) * 60 * 60)
+            return int(m.group(1)) * 60 * 60
         if re.match(RadioAlerts.regex_val, _dur_str):
             m = re.match(RadioAlerts.regex_val, _dur_str)
             return int(m.group(1))
@@ -341,8 +342,8 @@ def main():
     #
     cf_ob = ConfigFileObj(log, '../config/test.ini')
     alerts = cf_ob.config_object
-    log.debug("alert 01")
-    al = RadioAlerts(log, alerts['alert-01'])
+    log.debug("alert 00")
+    al = RadioAlerts(log, alerts['alert-00'])
     log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=120)))
     for devname in al.alert_devices:
         log.info("device: '{}'".format(devname))
