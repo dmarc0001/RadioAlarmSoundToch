@@ -1,7 +1,8 @@
 <?php
   # starte zuerst eine Session, später geht das nicht mehr
   session_start();
-  # 09/2017 D. Marciniak
+  #
+  # 11/2017 D. Marciniak
   #
   # Das Script wird nicht direkt vom Benutzer sondern via JavaScript aus der 
   # Webseite aufgerufen 
@@ -13,26 +14,35 @@
   include "inc/std_headers.php";   
   #erst mal vom Fehler ausgehen
   $showErrorPage = true;
+  $alertNote = 'NAMENLOS';
 
   if( isset($_GET["alert"]) )
   {
       #
       # Information abfordern
       #
-      $whichAlert = $_GET["alert"];
-      #
-      # erfrage die aktuelle Konfiguration vom soundtouch date_timezone_get
-      #
-      $request = array('get' => array($whichAlert));
-      # sende an daemon und warte
-      $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
-      # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
-      $answerAlert = json_decode( $response, true );
-      # TODO: wenn $answerAlert[0] error ist
-      if( ! isset($answerAlert['error']) )
+      $whichAlert = trim($_GET["alert"]);
+      if( strcmp($whichAlert, 'new') != 0 )
       {
-        $alertConfig = $answerAlert[$whichAlert];
-        $showErrorPage = false;
+        #
+        # erfrage die aktuelle Konfiguration, falls es den Alarm gibt
+        # vom soundtouch date_timezone_get
+        #
+        $request = array('get' => array($whichAlert));
+        # sende an daemon und warte
+        $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+        # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
+        $answerAlert = json_decode( $response, true );
+        # TODO: wenn $answerAlert[0] error ist
+        if( ! isset($answerAlert['error']) )
+        {
+          $alertConfig = $answerAlert[$whichAlert];
+          $showErrorPage = false;
+          if( isset($alertConfig['note']) )
+          {
+            $alertNote = $alertConfig['note'];
+          }
+        }
       }
       # 
       # verfügbare geräte abfragen
@@ -45,8 +55,7 @@
       if( ! isset($answerDevices['error']) )
       {
         $showErrorPage = false;
-      }
-      
+      }  
   }
   #
   # Nornal oder Fehler?
@@ -60,13 +69,16 @@
       <input type="hidden" id="alert-name" value="<?php echo $whichAlert; ?>" /> 
       <div data-role="header">
         <!-- /header -->
-        <h1><?php echo $alertConfig['note']?></h1>
+        <h1><?php echo $alertNote; ?></h1>
       </div>
       
       <div role="main" class="ui-content">
         <!-- content -->
         <div class="ui-grid-solo">
           <div class="ui-block-a">
+            <!-- Name des alarms -->
+            <label for="alert-note">Weckername</label>
+            <input type="text" data-clear-btn="true" name="alert-note" id="alert-note" value="<?php echo $alertNote; ?>" />
             <!-- Uhrzeit -->
             <div>Weckzeit</div>
             <input type="text" id="time-picker" data-role="datebox" 
@@ -118,7 +130,7 @@
                 <input type="radio" name="rad-presets" id="rad-preset-4" />
                 <label for="rad-preset-4">STATION 4</label>
                 <input type="radio" name="rad-presets" id="rad-preset-5" />
-                <label for="rad-preset-5">STATION 2</label>
+                <label for="rad-preset-5">STATION 5</label>
                 <input type="radio" name="rad-presets" id="rad-preset-6" />
                 <label for="rad-preset-6">STATION 6</label>
               </form>

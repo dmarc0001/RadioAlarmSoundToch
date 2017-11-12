@@ -26,7 +26,7 @@ class RadioAlerts:
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
-        self.al_working = False # alarm spielt gerade
+        self.al_working_timestamp = False # alarm spielt gerade
         self.al_enable = True
         self.al_weekdays = None
         self.al_volume = 0
@@ -40,7 +40,7 @@ class RadioAlerts:
         self.al_devices = []
         self.al_note = None
         self.al_duration = RadioAlerts.DEFAULT_ALERT_DURATION
-        self.al_alert_thread = None  # wenn self.al_working dann hier der Thread
+        self.al_alert_thread = None  # wenn self.al_working_timestamp dann hier der Thread
         #
         self.log.debug("RadioAlerts is instantiating...")
         #
@@ -132,6 +132,7 @@ class RadioAlerts:
         #
         # etwas debugging
         #
+        self.log.debug("alert source is: {}".format(self.al_source))
         self.log.debug("alert volume is: {}".format(self.al_volume))
         self.log.debug("alert is raising: {}".format(self.al_volume_incr))
         # Geräte
@@ -153,7 +154,7 @@ class RadioAlerts:
         :return: Anzahl Sekunden zum nächsten Alarm, falls der Abstand geringer ist als 60 Minuten, sonst None
         """
         if self.al_date is not None:
-            # ok, einmalige Sache, ist das in der Zukunft?
+            # ok, einmalige Sache, ist das Datum in der Zukunft?
             if self.al_date < datetime.now().date():
                 # in der Zukunft, Abstand berechnen
                 # erzeuge Datum und Uhrzeit am heutigen Tag
@@ -163,24 +164,26 @@ class RadioAlerts:
                 # und wie ist datum/zeit genau jetzt?
                 now_timestaqmp = int(time())
                 time_diff = dest_timestramp - now_timestaqmp
+                # ist der Alarm vergangenheit?
                 if time_diff < -600:
                     # sorge dafür, dass das erledigt ist
                     self.al_done = True
                 if min_sec_future < time_diff < max_sec_future:
                     # in max 60 Sekunden in der Zukunft
-                    self.log.debug("once event < 60 sec in the future...")
+                    self.log.debug("once event less than {} sec in the future...".format(max_sec_future))
                     return time_diff
                 else:
                     return None
                     # einmalig erst mal abgearbeitet
         # Kein Datum gegeben, könnte als täglich oder an bestimmten Tagen sein
         # dieser wochentag oder täglich?
+        # 7 stehr hier für täglich
         curr_day_number = datetime.now().weekday()
         if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
             # jeden Tag oder dieser Wochentag, also guck mal wie die Differenz ist
             # erzeuge die Uhrzeit am heutigen Tag
             dest_datetime = datetime.combine(datetime.now().date(), self.al_time)
-            # mache Timestamp daraus
+            # mache einen Timestamp für den alarmzeitpunkt
             dest_timestramp = int(dest_datetime.timestamp())
             # und wie ist datum/zeit genau jetzt?
             now_timestaqmp = int(time())
@@ -193,11 +196,12 @@ class RadioAlerts:
                 self.al_done = False
             if min_sec_future < time_diff < max_sec_future and not self.al_done:
                 # in max 60 Sekunden in der Zukunft, wenn noch nicht erledigt
-                self.log.debug("repeatable event < 60 sec in the future...")
+                self.log.debug("repeatable event less than {} sec in the future...".format(max_sec_future))
                 return time_diff
             else:
                 return None
-        # weder einmalig noch wiederholung
+        # weder einmalig noch wiederholung, dann ...und tschüss
+        # self.log.debug("not an repeatable or an single alert, return with None...")
         return None
 
     @staticmethod
@@ -211,10 +215,10 @@ class RadioAlerts:
             return int(m.group(1))
         if re.match(RadioAlerts.regex_min, _dur_str):
             m = re.match(RadioAlerts.regex_min, _dur_str)
-            return int(m.group(1) * 60)
+            return int(m.group(1)) * 60
         if re.match(RadioAlerts.regex_std, _dur_str):
             m = re.match(RadioAlerts.regex_std, _dur_str)
-            return int(m.group(1) * 60 * 60)
+            return int(m.group(1)) * 60 * 60
         if re.match(RadioAlerts.regex_val, _dur_str):
             m = re.match(RadioAlerts.regex_val, _dur_str)
             return int(m.group(1))
@@ -233,17 +237,17 @@ class RadioAlerts:
         self.al_alert_thread = _alert_thread
 
     @property
-    def alert_working(self):
-        return self.al_working
+    def alert_working_timestamp(self):
+        return self.al_working_timestamp
 
-    @alert_working.setter
-    def alert_working(self, _is_working: bool):
-        self.al_working = _is_working
+    @alert_working_timestamp.setter
+    def alert_working_timestamp(self, _is_working: int):
+        self.al_working_timestamp = _is_working
 
     @property
-    def alert_duration(self):
+    def alert_duration_secounds(self):
         """
-        Alarmdauer des alarms zurückgeben
+        Alarmdauer des alarms in sekunden zurückgeben
         :return:
         """
         return self.al_duration
@@ -341,8 +345,8 @@ def main():
     #
     cf_ob = ConfigFileObj(log, '../config/test.ini')
     alerts = cf_ob.config_object
-    log.debug("alert 01")
-    al = RadioAlerts(log, alerts['alert-01'])
+    log.debug("alert 00")
+    al = RadioAlerts(log, alerts['alert-00'])
     log.info("time to next alert: {}".format(al.sec_to_alert(max_sec_future=120)))
     for devname in al.alert_devices:
         log.info("device: '{}'".format(devname))

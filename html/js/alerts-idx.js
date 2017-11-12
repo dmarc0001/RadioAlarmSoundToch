@@ -113,7 +113,6 @@ function initIndexPage()
   console.debug("reread alert status via timer ...OK");
 
   console.debug("init events for all alerts...");
-  $('input:button#make-new-alert').click(makeNewAlert)
   $('input:button#all-alerts-off').click(switchOffAlerts);
   $('input:button#all-alerts-on').click(switchOnAlerts);
   console.debug("init events for all alerts...OK");
@@ -631,8 +630,8 @@ function updateEditGUI(alertName)
 }
 
 //
-// Die Funktion, welche beim Empfang der Daten für den alarm 
-// aufgerufen wird
+// Die Funktion, welche beim Empfang der Daten für den zu bearbeitenden 
+// Alarm aufgerufen wird
 //
 function recAlertStatusData(data)
 {
@@ -718,7 +717,7 @@ function recAlertStatusData(data)
         console.debug("devices list: '" + propertys['devices'] + "'")
         for( var idx=0; idx < tempAlarmDevices.length; idx++ )
         {
-          alarmDevices[idx] = tempAlarmDevices[idx].trim().replace(" ", "_" );
+          alarmDevices[idx] = tempAlarmDevices[idx].trim().replace(" ", "_" ).toLowerCase();
         }
 
         //
@@ -742,7 +741,7 @@ function recAlertStatusData(data)
           }
         }
         //
-        // Lautstärke
+        // Lautstärke 
         //
         $('input#volume-sl').val(propertys['volume']).slider('refresh');
         //
@@ -779,10 +778,22 @@ function recAlertStatusData(data)
 //
 function saveAlertValues()
 {
+  // 
+  // whichAlert ist dann entweder "alert-xx" oder "new"
+  //
   var whichAlert = $('input#alert-name');
   var propertyArray = new Object();
 
-  console.log('SAVE ALERT: ' + whichAlert.val() + "..."); 
+  console.log('SAVE ALERT: ' + whichAlert.val() + "...");
+  //
+  // Bemerkung/ lesbarer Name des Alarms
+  //
+  var alertNote = $('input#alert-note').val();
+  if( alertNote.length > 1 )
+  {
+    // steht was drin == ins Array damit
+    propertyArray.alert_note = alertNote;
+  }
   //
   // Datum und Zeit, falls gesetzt
   // und mit einem Trick auf fest 2 digits formatieren
@@ -875,7 +886,7 @@ function saveAlertValues()
   //
   propertyArray.alert_raise_vol = $('input#raise_vol').is(':checked');
   //
-  // alarmlänge, der slöider speichert in minuten...
+  // alarmlänge, der slider speichert in minuten...
   //
   propertyArray.alert_duration = $('input#alert-duration').val() + "m";
   //
@@ -924,17 +935,6 @@ function recAlertSave(data)
     }
   );
   console.debug("recived data from saverequest...OK")
-}
-
-/*#############################################################################
-####                                                                       ####
-#### NEUER ALARM                                                           ####
-####                                                                       ####
-#############################################################################*/
-function makeNewAlert()
-{
-  console.error('NEW ALERT: not implemented yet');
-  alert('neuer ALARM -> rufe edit mit neuem alarm auf...');
 }
 
 /*#############################################################################

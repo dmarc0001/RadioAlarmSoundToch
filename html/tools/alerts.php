@@ -157,7 +157,7 @@
         unset($alert_raise_vol);
         unset($alert_volume);
         unset($alert_note);
-        unset($alert_duration);
+        unset($alert_duration_secounds);
         unset($alert_source_account);
         unset($alert_type);
         unset($alert_location);
@@ -229,9 +229,9 @@
         {
             $alert_location = $_GET['alert_location'];
         }
-        if(isset($_GET['alert_duration']))
+        if(isset($_GET['alert_duration_secounds']))
         {
-            $alert_duration = $_GET['alert_duration'];
+            $alert_duration_secounds = $_GET['alert_duration_secounds'];
         }
         #
         # jetzt Logik für die Plausibilität
@@ -258,7 +258,7 @@
         if(isset($alert_note)) {$editArray['note'] = $alert_note;}
         if(isset($alert_type)) {$editArray['type'] = $alert_type;}
         if(isset($alert_location)) {$editArray['location'] = $alert_location;}
-        if(isset($alert_duration)) {$editArray['duration'] = $alert_duration;}
+        if(isset($alert_duration_secounds)) {$editArray['duration'] = $alert_duration_secounds;}
         #
         # erzeuge die Datenstruktur für das Kommando an den Daemon
         #

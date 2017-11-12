@@ -31,7 +31,7 @@ class SoundtouchPlayObject(Thread):
         self.slave_devices = []
         self.is_playing = False
         self.is_switchoff = True
-        self.duration = _alert.alert_duration
+        self.duration = _alert.alert_duration_secounds
         self.curr_vol = 0
         self.alert_volume_incr = self.alert.alert_volume_incr
         self.play_source = None
@@ -40,6 +40,7 @@ class SoundtouchPlayObject(Thread):
         #
         # schnittmenge der gefundenen und der geforderten Devices machen
         #
+        self.log.debug("device source is {}...".format(self.play_source))
         for device_name in self.alert.alert_devices:
             device = self.__exist_device_in_list( device_name, _avail_devices)
             if device is not None:
@@ -68,6 +69,9 @@ class SoundtouchPlayObject(Thread):
         # und anschalten
         #
         self.master_device = self.__create_sound_device()
+        if self.master_device is None:
+            self.log.error("Failure while checking master device! thread was endet...")
+            return
         self.zone_status = self.master_device.zone_status(True)
         #
         # Sender wählen
@@ -94,7 +98,8 @@ class SoundtouchPlayObject(Thread):
         #
         # setze die zeit, wann der Alarm ausgeschaltet wird
         #
-        __time_to_off = int(time()) + int(self.duration)
+        __current_time = int(time())
+        __time_to_off = self.duration + __current_time
         #
         # buffering abwarten
         #
@@ -127,7 +132,7 @@ class SoundtouchPlayObject(Thread):
         #
         while self.is_playing and __time_to_off > int(time()):
             sleep(1.6)
-            wait_time = int(__time_to_off) - int(time())
+            wait_time = int(__time_to_off - int(time()))
             self.log.debug("device {} alert running for {} seconds".format(self.master_device.config.name, wait_time))
         #
         # wenn wieder ausgeschaltet werden soll
@@ -144,7 +149,7 @@ class SoundtouchPlayObject(Thread):
             #
             self.power_off()
             self.alert.alert_thread = None
-            self.alert.alert_working = False
+            self.alert.alert_working_timestamp = False
             sleep(.6)
             #
             # noch eine Lautstärke einstellen für nächstes Einschalten
@@ -160,6 +165,8 @@ class SoundtouchPlayObject(Thread):
         self.master_device.clear_zone_status_listeners()
         # ACHTUNG in der library verändert
         self.master_device.stop_notification()
+        self.alert.alert_working_timestamp = 0
+        self.alert.alert_done = True
         self.log.debug("thread wass endet...")
 
     def __exist_device_in_list(self, _name_to_find: str, _avail_list: list):
@@ -215,11 +222,30 @@ class SoundtouchPlayObject(Thread):
                     master_device.add_zone_slave([slave])
             count_devices += 1
         sleep(.6)
-        curr_stat = master_device.status().source
-        while curr_stat == 'STANDBY':
-            self.log.debug("wait for weakup master device...")
-            sleep(.4)
-            curr_stat = master_device.status().source
+        #
+        # es kann eine exceptioon geben, versuche es ein paar mal in diesem Fall
+        #
+        curr_stat = None
+        curr_stat_count = 0
+        while curr_stat is None and curr_stat_count < 4:
+            curr_stat_count += 1
+            try:
+                curr_stat = master_device.status().source
+            except:
+                sleep(.6)
+                pass
+        #
+        # da passiert was, was nicht sein soll
+        #
+        if curr_stat is None:
+            self.log.warning("can't receive play status from master device...")
+            # Rückkehr mit Fehlermeldung
+            return None
+        else:
+            while curr_stat == 'STANDBY':
+                self.log.debug("wait for weakup master device...")
+                sleep(.4)
+                curr_stat = master_device.status().source
         return master_device
 
     def __fade_in(self, _from: int, _to: int):
@@ -371,7 +397,7 @@ class SoundtouchPlayObject(Thread):
 
 def main():
     """Hauptprogramm"""
-    my_alert = 'alert-01'
+    my_alert = 'alert-00'
     from libsoundtouch import discover_devices
     from config_files_obj import ConfigFileObj
     from time import sleep
