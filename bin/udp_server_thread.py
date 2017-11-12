@@ -259,6 +259,7 @@ class RadioCommandServer(Thread):
         # es scheint alles geklappt zu haben
         self.log.debug("set command for alert(s) successful!")
         if self.on_config_change is not None:
+            self.log.debug("call on_config_change...")
             self.on_config_change(int(time()))
         return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
@@ -275,7 +276,7 @@ class RadioCommandServer(Thread):
         #
         # jetzt das erste finden, welches NICHT existiert
         #
-        for idx in range(99):
+        for idx in range(1, 99):
             alert_num = "alert-{num:02d}".format(num=idx)
             # ist der key noch nicht vorhanden?
             if alert_num not in exist_alerts:
