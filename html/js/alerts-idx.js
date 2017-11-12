@@ -642,7 +642,7 @@ function recAlertStatusData(data)
   //
   console.debug("recived data from updateEditGUI...")
   //
-  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn ur der eine, gesuchte sein
+  // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn nur der eine, gesuchte sein
   //
   $.each(data,
     // anonyme Funktion für jedes Paar alert, value des Objektes "data" via "each" aufgerufen
@@ -743,6 +743,7 @@ function recAlertStatusData(data)
         //
         // Lautstärke 
         //
+        console.debug("Volume set to <" + propertys['volume'] + ">");
         $('input#volume-sl').val(propertys['volume']).slider('refresh');
         //
         // Lautstärke einblenden oder nicht
@@ -765,6 +766,7 @@ function recAlertStatusData(data)
         }
         // bereit den slider zu setzten...
         var durationMinutes = currentDuration / 60;
+        console.debug("Duration set to <" + durationMinutes + ">");
         $('input#alert-duration').val(durationMinutes).slider('refresh');
       }
     }
@@ -903,7 +905,6 @@ function saveAlertValues()
     recAlertSave            /* die "success" Funktion */
   );
   console.log('SAVE ALERT: ' + whichAlert.val() + "...OK"); 
- 
 }
 
 //
@@ -1116,8 +1117,12 @@ function editCheckboxState( checkboxElem, newState )
 //
 // gib aus einem String a la 30s oder 10m die Sekunden zurück
 //
-function getSecondsFromString( secStr )
+function getSecondsFromString( _secStr )
 {
+  var secStr = _secStr.toString();
+  secStr.trim();
+  console.debug("Duration raw value is <" + secStr + ">");
+  
   if(secStr.match(regex_sec))
   {
     return(secStr.match(regex_val)[1]); 
