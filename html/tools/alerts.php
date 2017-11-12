@@ -229,9 +229,26 @@
         {
             $alert_location = $_GET['alert_location'];
         }
-        if(isset($_GET['alert_duration_secounds']))
+        if(isset($_GET['alert_duration']))
         {
-            $alert_duration_secounds = $_GET['alert_duration_secounds'];
+            $duration = $_GET['alert_duration'];
+            if( preg_match( "/^\d+s$/i", $duration) )
+            {
+                $alert_duration_secounds = preg_replace( "/^(\d+)(.*)/i", "$1", $duration );
+            }
+            elseif( preg_match( "/^\d+$/", $duration) )
+            {
+                $alert_duration_secounds = preg_replace( "/^(\d+)(.*)/i", "$1", $duration );
+            }
+            elseif( preg_match( "/^\d+m$/i", $duration) )
+            {
+                $alert_duration_secounds = preg_replace( "/^(\d+)(.*)/i", "$1", $duration );
+                $alert_duration_secounds = $alert_duration_secounds * 60;
+            }
+            else
+            {
+                $alert_duration_secounds = 50 * 60;;
+            }
         }
         #
         # jetzt Logik für die Plausibilität
