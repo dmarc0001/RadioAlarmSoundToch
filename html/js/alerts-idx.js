@@ -630,8 +630,8 @@ function updateEditGUI(alertName)
 }
 
 //
-// Die Funktion, welche beim Empfang der Daten für den alarm 
-// aufgerufen wird
+// Die Funktion, welche beim Empfang der Daten für den zu bearbeitenden 
+// Alarm aufgerufen wird
 //
 function recAlertStatusData(data)
 {
@@ -717,7 +717,7 @@ function recAlertStatusData(data)
         console.debug("devices list: '" + propertys['devices'] + "'")
         for( var idx=0; idx < tempAlarmDevices.length; idx++ )
         {
-          alarmDevices[idx] = tempAlarmDevices[idx].trim().replace(" ", "_" );
+          alarmDevices[idx] = tempAlarmDevices[idx].trim().replace(" ", "_" ).toLowerCase();
         }
 
         //
@@ -741,7 +741,7 @@ function recAlertStatusData(data)
           }
         }
         //
-        // Lautstärke
+        // Lautstärke 
         //
         $('input#volume-sl').val(propertys['volume']).slider('refresh');
         //
