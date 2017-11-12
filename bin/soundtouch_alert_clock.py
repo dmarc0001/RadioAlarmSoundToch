@@ -117,6 +117,20 @@ class SoundTouchAlertClock:
             if int(time()) > self.timestamp_to_scan_devices:
                 # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
                 self.__find_available_devices()
+            #
+            # ist irgend ein Alarm bereits am Ackern?
+            #
+            if self.alert_in_progress is not None:
+                for c_alert in self.alerts:
+                    if c_alert.alert_working_timestamp > 0:
+                        # der alarm ist in arbeit, schätze mal die Dauer ab
+                        if c_alert.alert_working_timestamp + c_alert.alert_duration_secounds > int(time()):
+                            # alarm sollte vorbei sein, stelle den wieder so her wie er soll
+                            c_alert.alert_working_timestamp = 0
+                            self.alert_in_progress = False
+            #
+            # jetzt schauen ob da was zu tun ist
+            #
             if self.alert_in_progress is None:
                 #
                 # es läuft kein Alarm, also prüfe
@@ -125,7 +139,7 @@ class SoundTouchAlertClock:
                 #
                 for c_alert in self.alerts:
                     # wiel lange / kein Alarm
-                    time_to_alert = c_alert.sec_to_alert(3, 10)
+                    time_to_alert = c_alert.sec_to_alert(3, 15)
                     if time_to_alert is not None and not c_alert.alert_prepeairing:
                         # der Alarm naht und ist noch nicht vorbereitet
                         # gib bescheid: wird vorbereitet
@@ -141,12 +155,13 @@ class SoundTouchAlertClock:
                             continue
                         # ok, geräte sind bereit
                         #
-                        if c_alert.alert_working:
+                        if c_alert.alert_working_timestamp > 0:
                             self.log.warning("this alert is working... not mak an new alert this time")
                             continue
                         # erzeuge einen Weckerthread
                         play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
-                        c_alert.alert_working = True
+                        # markiere JETZT als Startzeitpunkt
+                        c_alert.alert_working_timestamp = int(time())
                         c_alert.alert_thread = play_alert_thread
                         play_alert_thread.start()
                         # TODO: gelegentlich prüfen...

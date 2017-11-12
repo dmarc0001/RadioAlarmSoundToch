@@ -26,7 +26,7 @@ class RadioAlerts:
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
-        self.al_working = False # alarm spielt gerade
+        self.al_working_timestamp = False # alarm spielt gerade
         self.al_enable = True
         self.al_weekdays = None
         self.al_volume = 0
@@ -40,7 +40,7 @@ class RadioAlerts:
         self.al_devices = []
         self.al_note = None
         self.al_duration = RadioAlerts.DEFAULT_ALERT_DURATION
-        self.al_alert_thread = None  # wenn self.al_working dann hier der Thread
+        self.al_alert_thread = None  # wenn self.al_working_timestamp dann hier der Thread
         #
         self.log.debug("RadioAlerts is instantiating...")
         #
@@ -201,7 +201,7 @@ class RadioAlerts:
             else:
                 return None
         # weder einmalig noch wiederholung, dann ...und tschüss
-        self.log.debug("not an repeatable or an single alert, return with None...")
+        # self.log.debug("not an repeatable or an single alert, return with None...")
         return None
 
     @staticmethod
@@ -237,17 +237,17 @@ class RadioAlerts:
         self.al_alert_thread = _alert_thread
 
     @property
-    def alert_working(self):
-        return self.al_working
+    def alert_working_timestamp(self):
+        return self.al_working_timestamp
 
-    @alert_working.setter
-    def alert_working(self, _is_working: bool):
-        self.al_working = _is_working
+    @alert_working_timestamp.setter
+    def alert_working_timestamp(self, _is_working: int):
+        self.al_working_timestamp = _is_working
 
     @property
-    def alert_duration(self):
+    def alert_duration_secounds(self):
         """
-        Alarmdauer des alarms zurückgeben
+        Alarmdauer des alarms in sekunden zurückgeben
         :return:
         """
         return self.al_duration

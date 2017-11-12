@@ -31,7 +31,7 @@ class SoundtouchPlayObject(Thread):
         self.slave_devices = []
         self.is_playing = False
         self.is_switchoff = True
-        self.duration = _alert.alert_duration
+        self.duration = _alert.alert_duration_secounds
         self.curr_vol = 0
         self.alert_volume_incr = self.alert.alert_volume_incr
         self.play_source = None
@@ -149,7 +149,7 @@ class SoundtouchPlayObject(Thread):
             #
             self.power_off()
             self.alert.alert_thread = None
-            self.alert.alert_working = False
+            self.alert.alert_working_timestamp = False
             sleep(.6)
             #
             # noch eine Lautstärke einstellen für nächstes Einschalten
@@ -165,6 +165,8 @@ class SoundtouchPlayObject(Thread):
         self.master_device.clear_zone_status_listeners()
         # ACHTUNG in der library verändert
         self.master_device.stop_notification()
+        self.alert.alert_working_timestamp = 0
+        self.alert.alert_done = True
         self.log.debug("thread wass endet...")
 
     def __exist_device_in_list(self, _name_to_find: str, _avail_list: list):
