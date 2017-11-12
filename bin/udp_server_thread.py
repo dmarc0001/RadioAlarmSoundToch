@@ -121,7 +121,7 @@ class RadioCommandServer(Thread):
         """
         # zum bearbeiten einen String daraus machen
         cmdstr = data.decode('utf-8')
-        self.log.info("cmd: %s" % cmdstr)
+        self.log.debug("cmd: %s" % cmdstr)
         # json parsen und Objekt daraus machen
         cmd = json.loads(cmdstr)
         #
@@ -194,10 +194,9 @@ class RadioCommandServer(Thread):
                     del _devices
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
-                self.log.debug("*** found: {} ***".format(sitem))
                 ConfigFileObj.config_lock.acquire()
                 if self.config[sitem] is not None:
-                    self.log.debug("*** add: {} ***".format(sitem))
+                    self.log.debug("add: {} to config" .format(sitem))
                     _answers[sitem] = self.config[sitem]
                 ConfigFileObj.config_lock.release()
             else:

@@ -59,7 +59,7 @@ class RadioAlerts:
         _devices = _alert.get('devices', None)
         if _alert.get('duration', None) is not None:
             _duration = _alert.get('duration')
-            if isinstance( _duration, str )
+            if isinstance(_duration, str):
                 # stelle sicher dass dies auch wirklich als STRING übergeben wird
                 self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('duration'))
             else:
@@ -116,7 +116,7 @@ class RadioAlerts:
                         self.al_weekdays.append(6)
                     else:
                         continue
-                    self.log.info("alert at {} detected.".format(day))
+                    self.log.debug("alert at {} detected.".format(day))
         #
         # Zeit des Alarms, festes Format: "HH.MM"
         #

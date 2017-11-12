@@ -131,7 +131,9 @@
 
       <div data-role="header">
         <!-- /header -->
-        <h1>Unser Radiowecker</h1>
+        <h1>
+  <?php if( isset($configObject['gui_header'])) {echo $configObject['gui_header'];} else { ?> Unser Radiowecker <?php } ?>
+        </h1>
       </div>
     
       <div role="main" class="ui-content">
@@ -165,12 +167,36 @@
               </div>
           </div>
           <hr />
-          Petra und Dirk RADIOWECKER
+          <?php 
+          if( isset($configObject['gui_extra_bottom1']) )
+          {
+            echo $configObject['gui_extra_bottom1'];
+          }
+          else
+          {
+          ?>
+            Home Radiowecker
+          <?php 
+          }
+          ?>
           <!-- content -->
-    </div>
+      </div>
     
       <div data-role="footer">
-        <h4>BOSE Sound Touch Geräte</h4>
+        <h4>
+        <?php 
+        if( isset($configObject['gui_extra_bottom2']) )
+        {
+          echo $configObject['gui_extra_bottom2'];
+        }
+        else
+        {
+        ?>
+          BOSE Sound Touch Geräte
+        <?php 
+        }
+        ?>
+        </h4>
       </div><!-- /footer -->
     </div><!-- /page -->
   </body>
