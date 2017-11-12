@@ -165,6 +165,7 @@ class ConfigFileObj:
         ConfigFileObj.config_lock.acquire()
         for section in sorted(self.config):
             if section == 'version':
+                # version auslassen, nicht speichern
                 continue
             if self.log is not None:
                 self.log.debug("create section [{}]...".format(section))

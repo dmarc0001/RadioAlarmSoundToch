@@ -121,7 +121,7 @@ class RadioCommandServer(Thread):
         """
         # zum bearbeiten einen String daraus machen
         cmdstr = data.decode('utf-8')
-        self.log.info("cmd: %s" % cmdstr)
+        self.log.debug("cmd: %s" % cmdstr)
         # json parsen und Objekt daraus machen
         cmd = json.loads(cmdstr)
         #
@@ -194,10 +194,9 @@ class RadioCommandServer(Thread):
                     del _devices
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
-                self.log.debug("*** found: {} ***".format(sitem))
                 ConfigFileObj.config_lock.acquire()
                 if self.config[sitem] is not None:
-                    self.log.debug("*** add: {} ***".format(sitem))
+                    self.log.debug("add: {} to config" .format(sitem))
                     _answers[sitem] = self.config[sitem]
                 ConfigFileObj.config_lock.release()
             else:
@@ -259,6 +258,7 @@ class RadioCommandServer(Thread):
         # es scheint alles geklappt zu haben
         self.log.debug("set command for alert(s) successful!")
         if self.on_config_change is not None:
+            self.log.debug("call on_config_change...")
             self.on_config_change(int(time()))
         return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
@@ -275,7 +275,7 @@ class RadioCommandServer(Thread):
         #
         # jetzt das erste finden, welches NICHT existiert
         #
-        for idx in range(99):
+        for idx in range(1, 99):
             alert_num = "alert-{num:02d}".format(num=idx)
             # ist der key noch nicht vorhanden?
             if alert_num not in exist_alerts:

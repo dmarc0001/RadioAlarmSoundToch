@@ -139,7 +139,7 @@ class SoundTouchAlertClock:
                 #
                 for c_alert in self.alerts:
                     # wiel lange / kein Alarm
-                    time_to_alert = c_alert.sec_to_alert(3, 15)
+                    time_to_alert = c_alert.sec_to_alert(5, 18)
                     if time_to_alert is not None and not c_alert.alert_prepeairing:
                         # der Alarm naht und ist noch nicht vorbereitet
                         # gib bescheid: wird vorbereitet
@@ -273,6 +273,24 @@ class SoundTouchAlertClock:
         # zeitstempel setzten, sonst liest er das nochmal ein
         self.config_modify_time = self.__read_mod_time()
         self.current_config_modify_time = self.config_modify_time
+        # TODO: geht das dann?
+        #######################################################################
+        # Alarme einlesen                                                     #
+        #######################################################################
+        self.alerts.clear()
+        regex_alert = re.compile(r'^alert-\d{2}$')
+        ConfigFileObj.config_lock.acquire()
+        for section in self.config:
+            if not regex_alert.match(section):
+                continue
+            # es ist ein alert...
+            self.log.debug("create RadioAlerts {}...".format(section))
+            ConfigFileObj.config_lock.release()
+            alert = RadioAlerts(self.log, self.config[section])
+            ConfigFileObj.config_lock.acquire()
+            self.alerts.append(alert)
+            self.log.debug("create RadioAlerts {}...OK".format(section))
+        ConfigFileObj.config_lock.release()
 
     def reload_conifg(self):
         """

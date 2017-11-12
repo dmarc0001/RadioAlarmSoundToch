@@ -58,7 +58,12 @@ class RadioAlerts:
         _time = _alert.get('time', None)
         _devices = _alert.get('devices', None)
         if _alert.get('duration', None) is not None:
-            self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('duration').strip())
+            _duration = _alert.get('duration')
+            if isinstance(_duration, str):
+                # stelle sicher dass dies auch wirklich als STRING übergeben wird
+                self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('duration'))
+            else:
+                self.al_duration = _duration
         else:
             self.al_duration = RadioAlerts.DEFAULT_ALERT_DURATION
         #
@@ -111,7 +116,7 @@ class RadioAlerts:
                         self.al_weekdays.append(6)
                     else:
                         continue
-                    self.log.info("alert at {} detected.".format(day))
+                    self.log.debug("alert at {} detected.".format(day))
         #
         # Zeit des Alarms, festes Format: "HH.MM"
         #
@@ -210,6 +215,8 @@ class RadioAlerts:
         gib die gewünschte Dauer des Alarms zurück
         :return:
         """
+        if _dur_str is None:
+            return RadioAlerts.DEFAULT_ALARM_DURATION
         if re.match(RadioAlerts.regex_sec, _dur_str):
             m = re.match(RadioAlerts.regex_sec, _dur_str)
             return int(m.group(1))
