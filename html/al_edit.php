@@ -82,8 +82,9 @@
             <!-- Uhrzeit -->
             <div>Weckzeit</div>
             <input type="text" id="time-picker" data-role="datebox" 
-              data-options='{"mode": "timeflipbox",  "usePlaceholder": "Weckzeit", "overrideDateFormat": "%H:%M", "showInitialValue": "true", "useLang":"de" }'>
+              data-options='{ "mode": "timebox", "usePlaceholder": "Weckzeit", "overrideDateFormat": "%H:%M", "showInitialValue": "true", "useLang":"de" }'>
             </input>
+            <!-- "mode": "timeflipbox",   -->
           
             <!-- an welchem Datum - dann ist das einmalig -->
             <div>Weckdatum</div>
