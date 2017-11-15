@@ -21,13 +21,14 @@ class RadioAlerts:
     regex_val = re.compile('^(\d+).*$', re.IGNORECASE)
     regex_date = re.compile('^\d{4}-\d{2}-\d{2}$')
     regex_time = re.compile('^\d{2}:\d{2}')
+    regex_wekkdays = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
 
     def __init__(self, _log: logging.Logger, _alert: dict):
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
         self.al_working_timestamp = False # alarm spielt gerade
-        self.al_enable = True
+        self.al_enabled = True
         self.al_weekdays = None
         self.al_volume = 0
         self.al_volume_incr = False
@@ -46,12 +47,12 @@ class RadioAlerts:
         #
         # Plausibilität prüfen
         #
-        self.al_enable = self.str2bool(_alert.get('enable', 'true'))
-        self.al_note = self.str2bool(_alert.get('note', 'unknown'))
+        self.al_enabled = self.str2bool(str(_alert.get('enable', 'true')))
+        self.al_note = _alert.get('note', 'unknown')
         self.al_source = _alert.get('source', None)
         self.al_location = _alert.get('location', None)
         self.al_source_account = _alert.get('source_account', None)
-        self.al_volume_incr = self.str2bool(_alert.get('raise_vol', 'false'))
+        self.al_volume_incr = self.str2bool(str(_alert.get('raise_vol', 'false')))
         self.al_volume = int(_alert.get('volume', '21'))
         _date = _alert.get('date', None)
         _days = _alert.get('days', None)
@@ -90,15 +91,14 @@ class RadioAlerts:
             _weekdays = _days.split(',')
             self.al_weekdays = []
             # wochentage (mo,th,we,th,fr,sa,su) | daily | once
-            reg_ex = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
             for day in _weekdays:
                 day = day.strip()
                 if day == 'daily':
                     # taeglich. Alles löschen und neu initialisieren
                     self.log.info("dayly alert detected!")
-                    self.al_weekdays = [7]
+                    self.al_weekdays.append(7)
                     break
-                if re.match(reg_ex, day):
+                if re.match(RadioAlerts.regex_wekkdays, day):
                     # Wochentag passt, zufügen
                     if day == 'mo':
                         self.al_weekdays.append(0)
@@ -121,19 +121,7 @@ class RadioAlerts:
         # Zeit des Alarms, festes Format: "HH.MM"
         #
         if _time is not None:
-            _time = _time.strip()
-        if _time is not None and RadioAlerts.regex_time.match(_time):
-            self.log.debug("time ({}) found. test if correct...".format(_time))
-            try:
-                atime = datetime.strptime(_time, '%H:%M')
-                self.log.debug("time is correct to {}...".format(_time))
-            except ValueError as err:
-                self.log.fatal("can not parse timestring {} - {}".format(_date, err))
-                self.log.warning("time is NOT correct, set to 06:00...")
-                atime = datetime.strptime('06:00', '%H:%M')
-            self.al_time = atime.time()
-        else:
-            self.al_time = datetime.strptime('06:00', '%H:%M').time()
+            self.__set_time_from_string(_time)
         #
         # etwas debugging
         #
@@ -209,6 +197,20 @@ class RadioAlerts:
         # self.log.debug("not an repeatable or an single alert, return with None...")
         return None
 
+    def __set_time_from_string(self, _ti: str):
+        _time = _ti.strip()
+        if _time is not None and RadioAlerts.regex_time.match(_time):
+            try:
+                atime = datetime.strptime(_time, '%H:%M')
+                self.log.debug("time is correct to {}...".format(_time))
+            except ValueError as err:
+                self.log.fatal("can not parse timestring {} - {}".format(_time, err))
+                self.log.warning("time is NOT correct, set to 06:00...")
+                atime = datetime.strptime('06:00', '%H:%M')
+            self.al_time = atime.time()
+        else:
+            self.al_time = datetime.strptime('06:00', '%H:%M').time()
+
     @staticmethod
     def __get_alert_duration(_dur_str: str):
         """
@@ -234,6 +236,14 @@ class RadioAlerts:
     @staticmethod
     def str2bool(_val: str):
         return _val.lower() in ('yes', 'true', 't', '1')
+
+    @property
+    def alert_enabled(self):
+        return self.al_enabled
+
+    @alert_enabled.setter
+    def alert_enabled(self, _en):
+        self.al_enabled = _en
 
     @property
     def alert_thread(self):
@@ -335,6 +345,14 @@ class RadioAlerts:
     @property
     def alert_location(self):
         return self.al_location
+
+    @property
+    def alert_time(self):
+        return self.al_time
+
+    @alert_time.setter
+    def alert_time(self, _ti: str):
+        self.__set_time_from_string(_ti )
 
 
 def main():
