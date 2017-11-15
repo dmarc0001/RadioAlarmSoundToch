@@ -1,24 +1,32 @@
 //
 // Steuerung der Weckerfunkion von der Website aus
 //
+
+//
+// Reguläre Ausdrücke definieren
+//
+var regex_date  = /^\d{4}-\d{2}-\d{2}$/;
+var regex_time  = /^\d{2}:\d{2}$/;
+var regex_sec   = /^(\d+)s$/i;
+var regex_min   = /^(\d+)m$/i;
+var regex_std   = /^(\d+)h$/i;
+var regex_val   = /^(\d+).*$/i;
+var regex_true  = /true|yes|1|on/i;
+
+// 
+// globale Variablen für das Programm
+//
 var timerInterval = 5000;
 var timerIsRunning = false;
 var alert_status = '/tools/alerts.php';
 var alert_index = 'index.php';
 var ignoreTrigger = false;
-var regexTrue = /true|yes|1|on/i;
 var timerId = null;
 var configId = 0;
 var editDate = null;
-var regex_date = /^\d{4}-\d{2}-\d{2}$/;
-var regex_time = /^\d{2}:\d{2}$/;
-var regex_sec = /^(\d+)s$/i;
-var regex_min = /^(\d+)m$/i;
-var regex_std = /^(\d+)h$/i;
-var regex_val = /^(\d+).*$/i;
 
 //
-// jQuery Mobile: wenn PAGE geänder ist, ausführen...
+// jQuery Mobile: wenn PAGE geändert ist, ausführen...
 //
 $(document).on('pagecontainershow', index_changePageAction);
 
@@ -107,6 +115,7 @@ function index_changePageAction(event, ui)
 //
 function index_initIndexPage()
 {
+  configId = 0;
   console.log("init index page...");
   console.debug("reread alert status via timer ...");
   index_timerFunc();
@@ -530,7 +539,7 @@ function index_updateAlertTimeStamp(value_name, propertys)
 }
 
 //
-// setze wenn verändert den Sliderstatus in der INDEX Gui
+// setze wenn verändert den Schalterstatus on/off in der INDEX Gui
 //
 function updateAlertSlider(value_name, propertys)
 {
@@ -539,7 +548,7 @@ function updateAlertSlider(value_name, propertys)
   //
   // so, jetzt überlegen was passieren soll
   //
-  var alarmIsActive = regexTrue.test(propertys['enable']);
+  var alarmIsActive = regex_true.test(propertys['enable']);
   //
   // wenn enable verändert ist
   //
