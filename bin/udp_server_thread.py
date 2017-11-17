@@ -259,10 +259,7 @@ class RadioCommandServer(Thread):
         self.log.debug("set command for alert(s) successful!")
         if self.on_config_change is not None:
             self.log.debug("call on_config_change...")
-            from threading import Lock
-            self.lock.acquire()
             self.on_config_change(int(time()))
-            self.lock.release()
         return json.dumps({'ok': 'sucsessful commands done'}).encode(encoding='utf-8')
         # ENDE __set_cmd_parse
 
@@ -307,9 +304,7 @@ class RadioCommandServer(Thread):
                 self.config['version'] = v_items
                 ConfigFileObj.config_lock.release()
                 if self.on_config_change is not None:
-                    self.lock.acquire()
                     self.on_config_change(int(time()))
-                    self.lock.release()
                 return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(
                     encoding='utf-8')
             else:

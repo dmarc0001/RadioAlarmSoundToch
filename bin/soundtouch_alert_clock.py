@@ -12,7 +12,7 @@ from radio_alerts import RadioAlerts
 from udp_server_thread import RadioCommandServer
 from libsoundtouch import discover_devices
 from soundtouch_play_object import SoundtouchPlayObject
-from threading import Lock
+from threading import Lock, Thread
 
 __author__ = 'Dirk Marciniak'
 __copyright__ = 'Copyright 2017'
@@ -44,9 +44,10 @@ class SoundTouchAlertClock:
     DEFAULT_LOGFILE = "alert_clock.log"
     DEFAULT_LOGLEVEL = logging.DEBUG
     DEFAULT_CONFIGCHECK = 20
-    DEFAULT_TIME_TO_FIND_DEVICES = 600
+    DEFAULT_TIME_TO_FIND_DEVICES = 1200
     REGEX_ALERT = re.compile(r'^alert-\d{2}$')
     devices_lock = Lock()
+    discover_lock = Lock()
 
     def __init__(self, _config_file: str):
         """
@@ -123,7 +124,12 @@ class SoundTouchAlertClock:
             #
             if int(time()) > self.timestamp_to_scan_devices:
                 # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
-                self.__find_available_devices()
+                # setzte die zeit für das nächste mal...
+                self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
+                # der lock soll von der Threadfunktion selber gelöst werden
+                self.discover_lock.acquire()
+                d_thread = Thread(target=self.__find_available_devices)
+                d_thread.start()
             #
             # ist irgend ein Alarm bereits am Ackern?
             #
@@ -229,20 +235,21 @@ class SoundTouchAlertClock:
         Durchsuche das LAN nach BOSE Geräten
         :return: Anzahl gefundener Geräte
         """
-        self.log.debug("search available al_devices")
-        # alle eventuell vorhandenen löschen
-        #
-        # finde Geräte im Netzwerk
-        #
-        self.log.debug("discover soundtouch devices...")
-        _available_dev = discover_devices(timeout=3)  # Default timeout is 3 seconds
-        SoundTouchAlertClock.devices_lock.acquire()
-        self.available_devices.clear()
-        self.available_devices = _available_dev.copy()
-        SoundTouchAlertClock.devices_lock.release()
-        self.log.debug("discover soundtouch devices...OK")
-        self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
-        return len(self.available_devices)
+        try:
+            self.log.info("start thread for search available soundtouch devices...")
+            #
+            # finde Geräte im Netzwerk
+            #
+            self.log.debug("thread discover soundtouch devices...")
+            _available_dev = discover_devices(timeout=15)  # Default timeout is 15 seconds
+            SoundTouchAlertClock.devices_lock.acquire()
+            self.available_devices.clear()
+            self.available_devices = _available_dev.copy()
+            SoundTouchAlertClock.devices_lock.release()
+            self.log.info("start thread for search available soundtouch devices ends with {} found devices".format(
+                len(self.available_devices)))
+        finally:
+            self.discover_lock.release()
 
     def __get_available_devices(self):
         """

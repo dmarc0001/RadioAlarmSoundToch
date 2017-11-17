@@ -23,7 +23,7 @@ class RadioAlerts:
     regex_time = re.compile('^\d{2}:\d{2}')
     regex_wekkdays = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
 
-    def __init__(self, _log: logging.Logger, _alert: dict):
+    def __init__(self, _log: logging.Logger, _config_section: dict):
         self.log = _log
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
@@ -47,22 +47,22 @@ class RadioAlerts:
         #
         # Plausibilität prüfen
         #
-        self.al_enabled = self.str2bool(str(_alert.get('enable', 'true')))
-        self.al_note = _alert.get('note', 'unknown')
-        self.al_source = _alert.get('source', None)
-        self.al_location = _alert.get('location', None)
-        self.al_source_account = _alert.get('source_account', None)
-        self.al_volume_incr = self.str2bool(str(_alert.get('raise_vol', 'false')))
-        self.al_volume = int(_alert.get('volume', '21'))
-        _date = _alert.get('date', None)
-        _days = _alert.get('days', None)
-        _time = _alert.get('time', None)
-        _devices = _alert.get('devices', None)
-        if _alert.get('duration', None) is not None:
-            _duration = _alert.get('duration')
+        self.al_enabled = self.str2bool(_config_section.get('enable', 'true'))
+        self.al_note = _config_section.get('note', 'unknown')
+        self.al_source = _config_section.get('source', None)
+        self.al_location = _config_section.get('location', None)
+        self.al_source_account = _config_section.get('source_account', None)
+        self.al_volume_incr = self.str2bool(_config_section.get('raise_vol', 'false'))
+        self.al_volume = int(_config_section.get('volume', '21'))
+        _date = _config_section.get('date', None)
+        _days = _config_section.get('days', None)
+        _time = _config_section.get('time', None)
+        _devices = _config_section.get('devices', None)
+        if _config_section.get('duration', None) is not None:
+            _duration = _config_section.get('duration')
             if isinstance(_duration, str):
                 # stelle sicher dass dies auch wirklich als STRING übergeben wird
-                self.al_duration = RadioAlerts.__get_alert_duration(_alert.get('duration'))
+                self.al_duration = RadioAlerts.__get_alert_duration(_config_section.get('duration'))
             else:
                 self.al_duration = _duration
         else:
@@ -235,11 +235,14 @@ class RadioAlerts:
 
     @staticmethod
     def str2bool(_val: str):
-        return _val.lower() in ('yes', 'true', 't', '1')
+        if type(_val) is str:
+            return _val.lower() in ('yes', 'true', 't', '1')
+        if type(_val) is bool:
+            return _val
 
     @property
     def alert_enabled(self):
-        return self.al_enabled
+        return(self.al_enabled)
 
     @alert_enabled.setter
     def alert_enabled(self, _en):

@@ -37,14 +37,12 @@ class SoundtouchPlayObject(Thread):
         self.play_source = None
         self.play_station = None
         self.zone_status = None
-        self.alert_note = _alert.alert_note
         #
         # schnittmenge der gefundenen und der geforderten Devices machen
         #
-        self.log.info("create player for alert {}...".format(self.alert_note))
         self.log.debug("device source is {}...".format(self.play_source))
         for device_name in self.alert.alert_devices:
-            device = self.__exist_device_in_list(device_name, _avail_devices)
+            device = self.__exist_device_in_list( device_name, _avail_devices)
             if device is not None:
                 self.soundtouch_devices.append(device)
                 self.log.debug("found device {} to play...".format(device.config.name))
@@ -59,7 +57,6 @@ class SoundtouchPlayObject(Thread):
         Destruktor...
         :return:
         """
-        self.log.info("destroy player for alert {}...".format(self.alert_note))
 
     def run(self):
         """
@@ -75,7 +72,6 @@ class SoundtouchPlayObject(Thread):
         if self.master_device is None:
             self.log.error("Failure while checking master device! thread was endet...")
             return
-        self.log.debug("run player for alert {}...".format(self.alert_note))
         self.zone_status = self.master_device.zone_status(True)
         #
         # Sender wählen
@@ -137,14 +133,12 @@ class SoundtouchPlayObject(Thread):
         while self.is_playing and __time_to_off > int(time()):
             sleep(1.6)
             wait_time = int(__time_to_off - int(time()))
-            self.log.debug(
-                "device {} alert {} running for {} seconds".format(self.master_device.config.name, self.alert_note,
-                                                                   wait_time))
+            self.log.debug("device {} alert running for {} seconds".format(self.master_device.config.name, wait_time))
         #
         # wenn wieder ausgeschaltet werden soll
         #
         if self.is_switchoff:
-            self.log.debug("switch off device for alert {}....".format(self.alert_note))
+            self.log.debug("switch off device....")
             #
             # wieder ausblenden oder abschalten
             #
@@ -207,7 +201,7 @@ class SoundtouchPlayObject(Thread):
             # wenn kein Master da ist, erst mal das Master Gerät machen
             if master_device is None:
                 master_device = SoundTouchDevice(host=hostname, port=portname)
-                self.log.debug("switch on master device {} for alert {}".format(device.config.name, self.alert_note))
+                self.log.debug("switch on master device {}".format(device.config.name))
                 master_device.add_zone_status_listener(self.__zone_status_listener)
                 master_device.power_on()
                 curr_stat = master_device.status().source
@@ -263,7 +257,7 @@ class SoundtouchPlayObject(Thread):
         self.curr_vol = _from
         __dest_vol = _to
         while self.is_playing and (self.curr_vol < __dest_vol) and self.alert_volume_incr:
-            self.log.debug("volume: {} for alert {}...".format(self.curr_vol, self.alert_note))
+            self.log.debug("volume: {}...".format(self.curr_vol))
             self.curr_vol = self.curr_vol + 2
             self.master_device.set_volume(self.curr_vol)
             for slave in self.slave_devices:
@@ -280,7 +274,7 @@ class SoundtouchPlayObject(Thread):
         self.curr_vol = _from
         __dest_vol = _to
         while self.is_playing and (self.curr_vol > __dest_vol) and self.curr_vol > 0:
-            self.log.debug("volume: {} for alert {}...".format(self.curr_vol, self.alert_note))
+            self.log.debug("volume: {}...".format(self.curr_vol))
             self.curr_vol = self.curr_vol - 3
             if self.curr_vol < 0:
                 self.curr_vol = 0
@@ -303,9 +297,8 @@ class SoundtouchPlayObject(Thread):
             # Ich tune zu einem PRESET, erst mal die Nummer finden
             preset_num = int(re.search('^PRESET_([123456789])$', self.alert.al_source).group(1)) - 1
             presets = self.master_device.presets()
-            self.log.info("switch to PRESET {}: {} ({}) for alert {}".format(preset_num + 1, presets[preset_num].name,
-                                                                             presets[preset_num].source,
-                                                                             self.alert_note))
+            self.log.info("switch to PRESET {}: {} ({})".format(preset_num + 1, presets[preset_num].name,
+                                                                presets[preset_num].source))
             # Play preset
             self.master_device.select_preset(presets[preset_num])
         elif SoundtouchPlayObject.re_inetradio.match(self.alert.alert_source):
@@ -332,7 +325,7 @@ class SoundtouchPlayObject(Thread):
         Alles wieder ausschalten
         :return:
         """
-        self.log.debug("switch off device(s) for alert {}...".format(self.alert_note))
+        self.log.debug("switch off device(s)...")
         if self.zone_status is not None and len(self.slave_devices) > 0:
             self.master_device.remove_zone_slave(self.slave_devices)
         self.master_device.clear_zone_status_listeners()
@@ -348,7 +341,7 @@ class SoundtouchPlayObject(Thread):
             self.log.info(zone_status.master_id)
             if zone_status.master_id != self.zone_status.master_id:
                 # ID verändert, thread ist alle
-                self.log.info("ZoneID is now {} (alert {})".format(zone_status.master_id, self.alert_note))
+                self.log.info("ZoneID is now {}".format(zone_status.master_id))
                 self.zone_status.master_id = zone_status.master_id
                 self.is_playing = False
                 self.is_switchoff = False
@@ -366,8 +359,7 @@ class SoundtouchPlayObject(Thread):
         """
         # ändert sich die Lautstärke ohne fading...
         play_volume = volume.actual
-        self.log.info(
-            "volume changed to: {}, alert current is {}, alert {}".format(play_volume, self.curr_vol, self.alert_note))
+        self.log.info("volume changed to: {}, alert current is {}".format(play_volume, self.curr_vol))
         if play_volume != self.curr_vol and self.alert_volume_incr:
             # ups, der user fingert daran rum
             self.alert_volume_incr = False
@@ -388,8 +380,7 @@ class SoundtouchPlayObject(Thread):
             # gibt es was zu berichten (STANDBY?)
             if play_source is not None and SoundtouchPlayObject.re_standby.match(play_source):
                 # Gerät auf STANDBY, das war es dann
-                self.log.warning(
-                    "device manual switched to STANDBY, stop thread for alarm {}...".format(self.alert_note))
+                self.log.warning("device manual switched to STANDBY, stop thread...")
                 self.is_playing = False
                 return
             # ist station und source vorhanden?
@@ -397,14 +388,11 @@ class SoundtouchPlayObject(Thread):
                 if self.play_source != play_source or self.play_station != play_station:
                     # da wurde rumgemacht....
                     self.log.info(
-                        "station name changed to: {} / source changed to {}, alert {}".format(status.station_name,
-                                                                                              play_source,
-                                                                                              self.alert_note))
+                        "station name changed to: {} / source changed to {}".format(status.station_name, play_source))
                     # da wurde dran rumgemacht, Thread beenden, User das Feld überlassen
                     self.is_playing = False
                     self.is_switchoff = False
-                    self.log.warning("device manual switched to {}, stop thread for alert {}...".format(play_station),
-                                     self.alert_note)
+                    self.log.warning("device manual switched to {}, stop thread...".format(play_station))
 
 
 def main():

@@ -94,12 +94,12 @@ class ConfigFileObj:
     @staticmethod
     def __make_default_entrys():
         _items = dict()
-        _items['enable'] = False
+        _items['enable'] = 'false'
         _items['time'] = '06:00'
         _items['days'] = 'all'
         _items['date'] = None
         _items['source'] = 'PRESET_1'
-        _items['raise_vol'] = False
+        _items['raise_vol'] = 'false'
         _items['volume'] = '23'
         _items['devices'] = None
         _items['source_account'] = None

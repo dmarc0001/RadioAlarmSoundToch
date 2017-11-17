@@ -1,4 +1,4 @@
 @echo off
-net use r: \\radiowecker\www
-net use s: \\radiowecker\pi
+net use r: \\web-test\www
+net use s: \\radiowecker\www
 
