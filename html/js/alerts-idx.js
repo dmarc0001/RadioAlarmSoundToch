@@ -24,6 +24,7 @@ var ignoreTrigger = false;
 var timerId = null;
 var configId = 0;
 var editDate = null;
+var waitTrysWhileUpdate = 8;
 
 //
 // jQuery Mobile: wenn PAGE geändert ist, ausführen...
@@ -293,6 +294,15 @@ function index_setStatusDataFunc(data)
 //
 function index_timerFunc()
 {
+  var trys = waitTrysWhileUpdate;
+  //
+  // kurz warten
+  //
+  while( timerIsRunning && trys > 0 )
+  {
+    trys = trys -1;
+    util_sleep(100);
+  }
   if (timerIsRunning )
   {
     return;
@@ -362,7 +372,16 @@ function index_recCheckindex_UpdateFunc(data)
 //
 function index_updateFunc()
 {
-  if (timerIsRunning )
+  var trys = waitTrysWhileUpdate;
+  //
+  // kurz warten
+  //
+  while( timerIsRunning && trys > 0 )
+  {
+    trys = trys -1;
+    util_sleep(100);
+  }
+  if (timerIsRunning)
   {
     return;
   }
@@ -1150,5 +1169,13 @@ function util_getSecondsFromString( _secStr )
   }
   console.error( "time distance string (" + secStr + ") is not an valid string");
   return(0);
+}
+
+//
+// eine kleine sleep Funtion
+//
+function util_sleep(ms) 
+{
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
