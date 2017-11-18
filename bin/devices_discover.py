@@ -17,7 +17,7 @@ __copyright__ = 'Copyright 2017'
 __license__ = 'GPL'
 __version__ = '0.1'
 
-config_file = "../config/alert.ini"
+config_file = "/var/www/config/alert.ini"
 
 
 class SoundtouchDiscoverDevices:
