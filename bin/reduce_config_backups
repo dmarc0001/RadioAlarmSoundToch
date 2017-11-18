@@ -17,7 +17,10 @@ cd $A_DIR
 FILES=`ls | grep -P "^\\d{12,}-alert.ini" | sort`
 
 # DEBUG
-echo "Files: $FILES"
+echo "Files:"
+for DELFILE in $FILES ; do
+  echo "  $DELFILE"
+done
 
 #
 # wie viele Dateien?
@@ -35,12 +38,15 @@ if [ $A_COUNT -gt $A_MAXCOUNT ] ; then
   # die liste ist schon sortiert, daher einfach der Reihe nach
   #
   for DELFILE in $FILES ; do
-    while [ $A_COUNT -gt $A_MAXCOUNT ] ; do
+    if [ $A_COUNT -gt $A_MAXCOUNT ] ; then
       echo "delete $DELFILE from device, count for files is $A_COUNT..."
+      rm -f $DELFILE
       A_COUNT=`echo "$A_COUNT - 1" | bc`
-    done
+    else
+      echo "finish delete files."
+      break
+    fi
   done
-  echo "finish delete files."
 else
   echo "nothing to do for delete files..."
 fi
