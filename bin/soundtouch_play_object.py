@@ -42,7 +42,7 @@ class SoundtouchPlayObject(Thread):
         #
         self.log.debug("device source is {}...".format(self.play_source))
         for device_name in self.alert.alert_devices:
-            device = self.__exist_device_in_list( device_name, _avail_devices)
+            device = self.__exist_device_in_list(device_name, _avail_devices)
             if device is not None:
                 self.soundtouch_devices.append(device)
                 self.log.debug("found device {} to play...".format(device.config.name))

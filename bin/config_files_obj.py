@@ -171,7 +171,7 @@ class ConfigFileObj:
                 self.log.debug("create section [{}]...".format(section))
             else:
                 print("create section [{}]...".format(section))
-            # eliminiere None al Value
+            # eliminiere None als Value
             _tmp_section = self.config[section]
             for key in _tmp_section.keys():
                 if _tmp_section[key] is None:
