@@ -90,7 +90,7 @@ function index_changePageAction(event, ui)
     }      
     // auf der EDIT Seite (Dialog) ein paar Sachen aktivieren
     console.debug("deactivate any things on the edit page...");
-    index_initEditPage();
+    edit_initEditPage();
   } 
   else if(toPage == 'delete-page')
   {
@@ -590,7 +590,7 @@ function updateAlertSlider(value_name, propertys)
 //
 // initialisiere die EDIT Page
 //
-function index_initEditPage()
+function edit_initEditPage()
 {
   var alertName = $('input#alert-name').val();
   console.log('init edit page for alert: ' + alertName + "...");
@@ -628,18 +628,18 @@ function index_initEditPage()
   // Initiiere das Update der Werte in der EDIT GUI
   // (ASYNCRON)
   //
-  index_updateEditGUI(alertName);
+  edit_updateEditGUI(alertName);
   //
   // Funktion beim klick auf SICHERN
   //
-  $('a#save-alert').click(index_saveAlertValues);
+  $('a#save-alert').click(edit_saveAlertValues);
   console.log('init edit page for alert: ' + alertName + "...OK");
 }
 
 //
 // hole die aktuellen Einstellugnen des Alarms
 //
-function index_updateEditGUI(alertName)
+function edit_updateEditGUI(alertName)
 {
   console.debug('ask alert properties (' + alertName + ')...');
   //
@@ -653,7 +653,7 @@ function index_updateEditGUI(alertName)
   $.getJSON(
     alert_status,           /* die URL */
     requestData,            /* die GET Parameter */
-    index_recAlertStatusData      /* die "success" Funktion */
+    edit_recAlertStatusData      /* die "success" Funktion */
   );
 }
 
@@ -661,14 +661,14 @@ function index_updateEditGUI(alertName)
 // Die Funktion, welche beim Empfang der Daten für den zu bearbeitenden 
 // Alarm aufgerufen wird
 //
-function index_recAlertStatusData(data)
+function edit_recAlertStatusData(data)
 {
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
   // Ebene 2 == key: Wertename: value: Wert
   //
-  console.debug("recived data from index_updateEditGUI...")
+  console.debug("recived data from edit_updateEditGUI...")
   //
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn nur der eine, gesuchte sein
   //
@@ -678,7 +678,7 @@ function index_recAlertStatusData(data)
     {
       if (value_name == 'error')
       {
-        console.error("while index_updateEditGUI(): error recived!");
+        console.error("while edit_updateEditGUI(): error recived!");
       }
       else
       {
@@ -806,7 +806,7 @@ function index_recAlertStatusData(data)
 //
 // Funktion zum sichern eines ALARMES
 //
-function index_saveAlertValues()
+function edit_saveAlertValues()
 {
   // 
   // whichAlert ist dann entweder "alert-xx" oder "new"
@@ -930,7 +930,7 @@ function index_saveAlertValues()
   $.getJSON(
     alert_status,           /* die URL */
     requestData,            /* die GET Parameter */
-    index_recAlertSave            /* die "success" Funktion */
+    edit_recAlertSave            /* die "success" Funktion */
   );
   console.log('SAVE ALERT: ' + whichAlert.val() + "...OK"); 
 }
@@ -938,7 +938,7 @@ function index_saveAlertValues()
 //
 // Callback Funktion beim sichern eines alarmes
 //
-function index_recAlertSave(data)
+function edit_recAlertSave(data)
 {
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
@@ -955,7 +955,7 @@ function index_recAlertSave(data)
     {
       if (value_name == 'error')
       {
-        console.error("while index_saveAlertValues(): error recived!");
+        console.error("while edit_saveAlertValues(): error recived!");
       }
       else
       {

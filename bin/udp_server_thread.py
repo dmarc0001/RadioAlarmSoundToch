@@ -149,7 +149,6 @@ class RadioCommandServer(Thread):
         """
         _answers = dict()
         match_pattern = re.compile('^alert-\d{2}$', re.IGNORECASE)
-        # TODO: Was wurde gefragt? hier erst mal alles zurück geben
         for sitem in _cmd:
             #
             # welche Anforderung war es
@@ -192,13 +191,43 @@ class RadioCommandServer(Thread):
                         dev_info['host'] = device['host']
                         _answers[devname] = dev_info
                     del _devices
+
+            #
+            # wenn es ein NEUER Eintrag wird
+            #
+            elif 'new' in sitem:
+                # neuen Eintrag vorbereiten
+                self.log.info("get NEW alert config")
+                new_item = ConfigFileObj.get_empty_configitem()
+                alert_num = self.__get_free_alert_number()
+                if alert_num is None:
+                    self.log.error("get new config item failed, not free alert number found!")
+                    return json.dumps({'error': 'get new config item failed, not free alertnumber found!'}).encode(
+                        encoding='utf-8')
+                #
+                # erzeuge neuen Eintrag in der Config
+                #
+                alert_name = "alert-{num:02d}".format(num=alert_num)
+                # keinen Namen vergeben
+                del new_item['note']
+                # einen neuen, sonst nicht genutzten Eintrag
+                new_item['new-alert'] = alert_name
+                # NULL vermeiden (wg. JavaScripts in der GUI)
+                new_item['date'] = " "
+                new_item['devices'] = " "
+                # der Name des Eintrages:
+                _answers["new"] = new_item
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
                 ConfigFileObj.config_lock.acquire()
-                if self.config[sitem] is not None:
-                    self.log.debug("add: {} to config" .format(sitem))
-                    _answers[sitem] = self.config[sitem]
-                ConfigFileObj.config_lock.release()
+                try:
+                    if self.config[sitem] is not None:
+                        self.log.debug("add: {} to config" .format(sitem))
+                        _answers[sitem] = self.config[sitem]
+                except KeyError:
+                    self.log.error("unknown (new?) alert to ask: {}".format(sitem))
+                finally:
+                    ConfigFileObj.config_lock.release()
             else:
                 self.log.warning("get command not implemented or none alerts match request. Data: <{}>".format(sitem))
                 return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(
@@ -219,23 +248,15 @@ class RadioCommandServer(Thread):
             # {"set":[{"alert":"alert-04","enable":"true", ...}, {"alert":"alert-03","enable":"true", ...}]}
             #
             alert_name = sitem['alert']
-            self.log.debug("found alert {} with set commands".format(alert_name))
-            #
-            # wenn es ein NEUER Eintrag wird
-            #
-            if alert_name == 'new':
-                # neuen Eintrag vorbereiten
-                new_item = ConfigFileObj.get_empty_configitem()
-                alert_num = self.__get_free_alert_number()
-                if alert_num is None:
-                    self.log.error("set new config item failed, not free alert number found!")
-                    return json.dumps({'error': 'set new config item failed, not free alertnumber found!'}).encode(
-                        encoding='utf-8')
-                #
-                # erzeuge neuen Eintrag in der Config
-                #
-                alert_name = "alert-{num:02d}".format(num=alert_num)
-                self.config[alert_name] = new_item
+            if alert_name not in self.config:
+                # da ist ein NEUNER Alarm drin
+                self.log.debug("found NEW alert {} with set commands".format(alert_name))
+                _alert = ConfigFileObj.get_empty_configitem()
+                ConfigFileObj.config_lock.acquire()
+                self.config[alert_name] = _alert
+                ConfigFileObj.config_lock.release()
+            else:
+                self.log.debug("found alert {} with set commands".format(alert_name))
             #
             # nun alle Eigenschaften durch
             #

@@ -22,27 +22,29 @@
       # Information abfordern
       #
       $whichAlert = trim($_GET["alert"]);
-      if( strcmp($whichAlert, 'new') != 0 )
+      #
+      # erfrage die aktuelle Konfiguration, falls es den Alarm gibt
+      # vom soundtouch date_timezone_get
+      #
+      $request = array('get' => array($whichAlert));
+      # sende an daemon und warte
+      $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
+      $response2 = $response;
+      # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
+      $answerAlert = json_decode( $response, true );
+      # wenn $answerAlert[0] error ist
+      if( ! isset($answerAlert['error']) )
       {
-        #
-        # erfrage die aktuelle Konfiguration, falls es den Alarm gibt
-        # vom soundtouch date_timezone_get
-        #
-        $request = array('get' => array($whichAlert));
-        # sende an daemon und warte
-        $response = sendMessage( json_encode($request), $daddr, $dport, $dtimeout );
-        # Antwort ist ein JSON array mit einem Eintrag (ist ja nur einer angefordert)
-        $answerAlert = json_decode( $response, true );
-        # TODO: wenn $answerAlert[0] error ist
-        if( ! isset($answerAlert['error']) )
+        $alertConfig = $answerAlert[$whichAlert];
+        $showErrorPage = false;
+        if( isset($alertConfig['note']) )
         {
-          $alertConfig = $answerAlert[$whichAlert];
-          $showErrorPage = false;
-          if( isset($alertConfig['note']) )
-          {
-            $alertNote = $alertConfig['note'];
-          }
+          $alertNote = $alertConfig['note'];
         }
+      }
+      if( strcmp($whichAlert, "new") == 0 )
+      {
+        $whichAlert = $alertConfig['new-alert'];
       }
       # 
       # verfügbare geräte abfragen
@@ -64,6 +66,9 @@
   {
 ?>
   <body>
+  <!--
+    <?php echo $response2 ?>
+  -->
     <div data-role="page" id="edit-page" data-dialog="true" data-overlay-theme="<?php echo $configObject['gui_theme']; ?>" 
          data-theme="<?php echo $configObject['gui_theme']; ?>">
       <input type="hidden" id="alert-name" value="<?php echo $whichAlert; ?>" /> 
