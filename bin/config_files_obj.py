@@ -87,6 +87,50 @@ class ConfigFileObj:
         ConfigFileObj.config_lock.release()
         return self.config
 
+    def read_avail_devices(self):
+        """
+        Lese verfügbare soundtouch geräte aus externer Datei in
+        :return: Liste mit verfügbaren soundtouch Devices
+        """
+        _devices = dict()
+        # gibt es eine Datei dafür?
+        if self.config['global']['devices_file'] is None:
+            if self.log is not None:
+                self.log.error("not an file for soundtouch devices found in config!")
+                self.log.error("please insert in section [global] an key 'devices_file'")
+            else:
+                print("not an file for soundtouch devices found in config!")
+                print("please insert in section [global] an key 'devices_file'")
+            return _devices
+        #
+        # jetzt lies die Datei aus und stelle eine Konfiguration zur Verfügung
+        #
+        parser = ConfigParser()
+        parser.read(self.config['global']['devices_file'])
+        sections = parser.sections()
+        for section in sections:
+            if self.log is not None:
+                self.log.debug('device (section in config file)  "[{}]" found...'.format(section))
+            items = parser.items(section)
+            _complete_item = ConfigFileObj.__make_default_deviceitem()
+            for item in items:
+                name = item[0]
+                val = item[1]
+                if self.log is not None:
+                    self.log.debug("  [{}] => '{}' = '{}'".format(section, name, val))
+                _complete_item[name] = val
+            _devices[section] = _complete_item
+        return _devices
+
+    @staticmethod
+    def __make_default_deviceitem():
+        _item = dict()
+        _item['name'] = 'unknown'
+        _item['host'] = '127.0.0.1'
+        _item['port'] = '8090'
+        _item['type'] = 'unknown'
+        return _item
+
     @staticmethod
     def get_empty_configitem():
         return ConfigFileObj.__make_default_entrys()

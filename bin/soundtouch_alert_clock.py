@@ -66,7 +66,7 @@ class SoundTouchAlertClock:
         self.console_log = False
         self.loglevel = SoundTouchAlertClock.DEFAULT_LOGLEVEL
         self.timezone = 'UTC'
-        self.available_devices = []
+        self.available_devices = dict()
         self.alert_in_progress = None
         self.timestamp_to_scan_devices = 0
         self.alerts = []
@@ -140,8 +140,9 @@ class SoundTouchAlertClock:
                         # der alarm ist in arbeit, schätze mal die Dauer ab
                         if c_alert.alert_working_timestamp + c_alert.alert_duration_secounds > int(time()):
                             # alarm sollte vorbei sein, stelle den wieder so her wie er soll
+                            self.log.debug("alert {} is off, set markers to off!".format(c_alert.alert_note))
                             c_alert.alert_working_timestamp = 0
-                            self.alert_in_progress = False
+                            self.alert_in_progress = None
                 self.alerts_lock.release()
             #
             # jetzt schauen ob da was zu tun ist
@@ -176,7 +177,8 @@ class SoundTouchAlertClock:
                         # ok, geräte sind bereit
                         #
                         if c_alert.alert_working_timestamp > 0:
-                            self.log.warning("this alert is working... not mak an new alert this time")
+                            self.log.warning("this alert is working... not make an new alert this time")
+                            self.alert_in_progress = int(time())
                             continue
                         # erzeuge einen Weckerthread
                         play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
@@ -184,7 +186,7 @@ class SoundTouchAlertClock:
                         c_alert.alert_working_timestamp = int(time())
                         c_alert.alert_thread = play_alert_thread
                         play_alert_thread.start()
-                        # TODO: thread gelegentlich prüfen...
+                        self.alert_in_progress = int(time())
                 self.alerts_lock.release()
             else:
                 # TODO: markierung prüfen, vorher setzten
@@ -241,7 +243,13 @@ class SoundTouchAlertClock:
             # finde Geräte im Netzwerk
             #
             self.log.debug("thread discover soundtouch devices...")
-            _available_dev = discover_devices(timeout=15)  # Default timeout is 15 seconds
+            #
+            # gibt es das config objekt (sollte es schon...)
+            if self.config_read_obj is None:
+                # neui anlegen
+                self.config_read_obj = ConfigFileObj(self.log, self.config_file)
+            # lese die Daten...
+            _available_dev = self.config_read_obj.read_avail_devices()
             SoundTouchAlertClock.devices_lock.acquire()
             self.available_devices.clear()
             self.available_devices = _available_dev.copy()
@@ -272,12 +280,12 @@ class SoundTouchAlertClock:
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
         SoundTouchAlertClock.devices_lock.acquire()
-        for device in self.available_devices:
+        for devname, device in self.available_devices.items():
             self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
-                                                                                                  device.config.name,
-                                                                                                  device.config.type,
-                                                                                                  device.host))
-            if re.match(match_pattern, device.config.name):
+                                                                                                  device['name'],
+                                                                                                  device['type'],
+                                                                                                  device['host']))
+            if re.match(match_pattern, devname):
                 self.log.debug("destination device found!")
                 SoundTouchAlertClock.devices_lock.release()
                 return device

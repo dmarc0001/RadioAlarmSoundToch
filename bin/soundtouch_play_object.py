@@ -22,7 +22,7 @@ class SoundtouchPlayObject(Thread):
     re_amazon = re.compile(r'^AMAZON$')
     re_standby = re.compile(r'^STANDBY$')
 
-    def __init__(self, _log: logging.Logger, _avail_devices: list, _alert: RadioAlerts):
+    def __init__(self, _log: logging.Logger, _avail_devices: dict, _alert: RadioAlerts):
         Thread.__init__(self)
         self.log = _log
         self.alert = _alert
@@ -45,7 +45,7 @@ class SoundtouchPlayObject(Thread):
             device = self.__exist_device_in_list(device_name, _avail_devices)
             if device is not None:
                 self.soundtouch_devices.append(device)
-                self.log.debug("found device {} to play...".format(device.config.name))
+                self.log.debug("found device {} to play...".format(device['name']))
         # sind jetzt Geräte vorhanden?
         if len(self.soundtouch_devices) > 1:
             self.log.info("multiple devices for alert, try multiroom...")
@@ -169,7 +169,7 @@ class SoundtouchPlayObject(Thread):
         self.alert.alert_done = True
         self.log.debug("thread wass endet...")
 
-    def __exist_device_in_list(self, _name_to_find: str, _avail_list: list):
+    def __exist_device_in_list(self, _name_to_find: str, _avail_list: dict):
         """
         Gib das Gerät mit dem Namen XXX als Geräteobjekt zurück, falls vorhanden
         :param _name_to_find: Name des Gerätes
@@ -180,8 +180,8 @@ class SoundtouchPlayObject(Thread):
         # Pattern für Vergleich compilieren
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
-        for device in _avail_list:
-            if re.match(match_pattern, device.config.name):
+        for devname, device in _avail_list.items():
+            if re.match(match_pattern, devname):
                 self.log.debug("destination device found!")
                 return device
         self.log.debug("destination device NOT found!")
@@ -196,12 +196,12 @@ class SoundtouchPlayObject(Thread):
         master_device = None
         count_devices = 0
         for device in self.soundtouch_devices:
-            hostname = device.host
-            portname = device.port
+            hostname = device['host']
+            portname = device['port']
             # wenn kein Master da ist, erst mal das Master Gerät machen
             if master_device is None:
                 master_device = SoundTouchDevice(host=hostname, port=portname)
-                self.log.debug("switch on master device {}".format(device.config.name))
+                self.log.debug("switch on master device {}".format(device['name']))
                 master_device.add_zone_status_listener(self.__zone_status_listener)
                 master_device.power_on()
                 curr_stat = master_device.status().source

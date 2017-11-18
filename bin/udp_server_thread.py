@@ -131,13 +131,13 @@ class RadioCommandServer(Thread):
             self.log.debug("get cmd recognized...")
             return self.__get_cmd_parse(cmd['get'])
         elif 'set' in cmd:
-            self.log.debug("get cmd recognized...")
+            self.log.debug("set cmd recognized...")
             return self.__set_cmd_parse(cmd['set'])
         elif 'delete' in cmd:
             self.log.debug("DELETE cmd recognized...")
             return self.__delete_cmd_parse(cmd['delete'])
         else:
-            self.log.warning("unknown command recived!")
+            self.log.warning("unknown command recived! Data: <{}>".format(cmdstr))
             return json.dumps({'error': 'unknown command or not implemented yet'}).encode(encoding='utf-8')
             # ENDE __commandparser
 
@@ -184,13 +184,13 @@ class RadioCommandServer(Thread):
                 # alle verfügbaren Geräte finden und melden
                 _devices = self.available_devices_callback()
                 if _devices is not None:
-                    for device in _devices:
+                    for devname, device in _devices.items():
                         # für jedes Gerät einen Datensatz machen
                         dev_info = dict()
-                        dev_info['name'] = device.config.name
-                        dev_info['type'] = device.config.type
-                        dev_info['host'] = device.host
-                        _answers[device.config.name] = dev_info
+                        dev_info['name'] = device['name']
+                        dev_info['type'] = device['type']
+                        dev_info['host'] = device['host']
+                        _answers[devname] = dev_info
                     del _devices
             elif re.match(match_pattern, sitem):
                 # passt in das Muster
@@ -200,7 +200,7 @@ class RadioCommandServer(Thread):
                     _answers[sitem] = self.config[sitem]
                 ConfigFileObj.config_lock.release()
             else:
-                self.log.warning("get command not implemented or none alerts match request")
+                self.log.warning("get command not implemented or none alerts match request. Data: <{}>".format(sitem))
                 return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(
                     encoding='utf-8')
         # ende alle Kommandoeinträge

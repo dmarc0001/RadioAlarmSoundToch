@@ -82,7 +82,7 @@ class SoundtouchDiscoverDevices:
         _item['name'] = _dev.config.name
         _item['host'] = _dev.host
         _item['port'] = _dev.port
-
+        _item['type'] = _dev.config.type
         return _item
 
     @staticmethod
@@ -91,6 +91,7 @@ class SoundtouchDiscoverDevices:
         _item['name'] = 'unknown'
         _item['host'] = '127.0.0.1'
         _item['port'] = '8090'
+        _item['type'] = 'unknown'
         return _item
 
     def __write_config(self, _devconfig: dict):
