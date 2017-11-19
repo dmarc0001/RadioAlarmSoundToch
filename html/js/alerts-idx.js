@@ -119,7 +119,7 @@ function index_initIndexPage()
   configId = 0;
   console.log("init index page...");
   console.debug("reread alert status via timer ...");
-  index_timerFunc();
+  //index_timerFunc();
   console.debug("reread alert status via timer ...OK");
 
   console.debug("init events for all alerts...");
@@ -663,6 +663,7 @@ function edit_updateEditGUI(alertName)
 //
 function edit_recAlertStatusData(data)
 {
+  var daysArr = [];
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
@@ -696,9 +697,16 @@ function edit_recAlertStatusData(data)
         }
         //
         // Wochentage durchlaufen
-        // 
+        //
         daysArr = propertys['days'].split(',');
-
+        //
+        // wenn da keine Wochentage sind, dann JEDEN TAG
+        //
+        if( daysArr.length == 1 && daysArr[0].length < 2 )
+        {
+          console.warn("weekdays are empty, set all workdays!");
+          daysArr = "mo,tu,we,th,fr".split(',');
+        }
         // Jetzt für alle Tage prüfen und setzen
         // Montag
         if( $.inArray('mo', daysArr) > -1 ) { util_editCheckboxState( $('input#cb-monday'), true ); } else { util_editCheckboxState( $('input#cb-monday'), false ); }
@@ -808,6 +816,7 @@ function edit_recAlertStatusData(data)
 //
 function edit_saveAlertValues()
 {
+  var plausible = true;
   // 
   // whichAlert ist dann entweder "alert-xx" oder "new"
   //
@@ -827,6 +836,7 @@ function edit_saveAlertValues()
   //
   // Datum und Zeit, falls gesetzt
   // und mit einem Trick auf fest 2 digits formatieren
+  //
   var dateTime = $('input#time-picker').datebox('getTheDate');
   var hourStr =  "000" + dateTime.getHours();
   var minuteStr = "000" + dateTime.getMinutes();
@@ -901,7 +911,7 @@ function edit_saveAlertValues()
     {
       devicesArray.push($(this).attr('real_name'));
     }
-  );
+  ); 
   propertyArray.alert_devices = devicesArray.join();
   if( propertyArray.alert_devices.length == 0 )
   {
@@ -919,6 +929,32 @@ function edit_saveAlertValues()
   // alarmlänge, der slider speichert in minuten...
   //
   propertyArray.alert_duration = $('input#alert-duration').val() + "m";
+  //
+  // an dieser stelle einmal testen, ob der Alarm plausibel ist
+  //
+  if( devicesArray.length == 0)
+  {
+    // KEIN Gerät ausgewählt! ABBRUCH und Fehlermeldung
+    alert("KEIN GERÄT AUSGEWÄHLT!, NICHT SPEICHERN");
+    plausible = false;
+  }
+  if( propertyArray.alert_source.length < 2 )
+  {
+    alert("KEIN SENDER AUSGEWÄHLT! NICHT SPEICHERN");
+    plausible = false
+  }
+  if( propertyArray.alert_volume < 5 )
+  {
+    alert("LAUTSTÄRKE ZU NIEDRIG! NICHT SPEICHERN");
+    plausible = false;
+  }
+  //
+  // jetzt davon abhängig reagieren
+  //
+  if( ! plausible )
+  {
+    return;
+  }
   //
   // anfrageparameter bauen
   //
@@ -963,7 +999,7 @@ function edit_recAlertSave(data)
       }
     }
   );
-  console.debug("recived data from saverequest...OK")
+  console.debug("recived data from saverequest...OK");
 }
 
 /*#############################################################################
