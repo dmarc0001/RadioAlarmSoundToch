@@ -119,7 +119,8 @@ function index_initIndexPage()
   configId = 0;
   console.log("init index page...");
   console.debug("reread alert status via timer ...");
-  //index_timerFunc();
+  util_sleep(1300);
+  index_timerFunc();
   console.debug("reread alert status via timer ...OK");
 
   console.debug("init events for all alerts...");
