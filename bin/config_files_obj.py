@@ -231,13 +231,19 @@ class ConfigFileObj:
             self.log.debug("write to {} ...".format(_new_file))
         else:
             print("write to {} ...".format(_new_file))
-        with open(_new_file, 'w') as configfile:
-            parser.write(configfile)
-        configfile.close()
-        if self.log is not None:
-            self.log.debug("write to {} ...OK".format(_new_file))
-        else:
-            print("write to {} ...OK".format(_new_file))
+        try:
+            with open(_new_file, 'w') as configfile:
+                parser.write(configfile)
+            configfile.close()
+            if self.log is not None:
+                self.log.debug("write to {} ...OK".format(_new_file))
+            else:
+                print("write to {} ...OK".format(_new_file))
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
         #
         # die alte configdatei in sicherung kopieren
         #
@@ -249,7 +255,13 @@ class ConfigFileObj:
             self.log.debug("copy config file to {} ...".format(new_filename))
         else:
             print("copy config file to {} ...".format(new_filename))
-        shutil.copyfile(self.config_file, new_filename )
+        try:
+            shutil.copyfile(self.config_file, new_filename)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(new_filename))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(new_filename))
         #
         # jetzt die neue config über die alte kopieren
         #
@@ -257,7 +269,14 @@ class ConfigFileObj:
             self.log.debug("copy new config file to {} ...".format(self.config_file))
         else:
             print("copy new config file to {} ...".format(self.config_file))
-        shutil.copyfile(_new_file, self.config_file)
+        try:
+            shutil.copyfile(_new_file, self.config_file)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug(
+                    "write to {} ...permission error! Check file/directory permisions.".format(self.config_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(self.config_file))
         #
         # lösche die alte "new" datei
         #
@@ -265,7 +284,13 @@ class ConfigFileObj:
             self.log.debug("remove temporary new config file {} ...".format(_new_file))
         else:
             print("remove temporary new config file to {} ...".format(_new_file))
-        os.remove(_new_file)
+        try:
+            os.remove(_new_file)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
         #
         self.dict_hash = self.__get_hashstr(self.config)
         return True
