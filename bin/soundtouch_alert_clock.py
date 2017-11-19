@@ -10,9 +10,8 @@ import re
 from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
 from udp_server_thread import RadioCommandServer
-from libsoundtouch import discover_devices
 from soundtouch_play_object import SoundtouchPlayObject
-from threading import Lock
+from threading import Lock, Thread
 
 __author__ = 'Dirk Marciniak'
 __copyright__ = 'Copyright 2017'
@@ -28,6 +27,7 @@ des Weckens
 der Daemon lauscht via UDP socket auf Anforderungen von aussen (webserver) auf localhost
 nach aussen gibt er Stati und Infos zurück. Eine direkte Steuerung der radios ist erst 
 einmal nicht vorgesehen. 
+einmal nicht vorgesehen.
 
 Die Weckzeiten entnimmt der Daemon einer Config-Datei, die er zyklisch ausliest (oder
 auf Benachrichtigung vom Webserver dass Änderungen gemacht wurden)
@@ -43,8 +43,10 @@ class SoundTouchAlertClock:
     DEFAULT_LOGFILE = "alert_clock.log"
     DEFAULT_LOGLEVEL = logging.DEBUG
     DEFAULT_CONFIGCHECK = 20
-    DEFAULT_TIME_TO_FIND_DEVICES = 600
+    DEFAULT_TIME_TO_FIND_DEVICES = 1200
+    REGEX_ALERT = re.compile(r'^alert-\d{2}$')
     devices_lock = Lock()
+    discover_lock = Lock()
 
     def __init__(self, _config_file: str):
         """
@@ -59,14 +61,15 @@ class SoundTouchAlertClock:
         self.config_read_obj = None
         self.config = None
         self.config_modify_time = 0
-        self.current_config_modify_time = 0
+        self.config_last_modify_time = 0
         self.console_log = False
         self.loglevel = SoundTouchAlertClock.DEFAULT_LOGLEVEL
         self.timezone = 'UTC'
-        self.available_devices = []
+        self.available_devices = dict()
         self.alert_in_progress = None
         self.timestamp_to_scan_devices = 0
         self.alerts = []
+        self.alerts_lock = Lock()
         self.udp_serverthread = None
         #
         # Konfiguration lesen
@@ -102,32 +105,51 @@ class SoundTouchAlertClock:
         # ....
         self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         # die aktuelle zeit der letzten änderung merken
-        self.current_config_modify_time = self.config_modify_time
+        self.config_last_modify_time = self.config_modify_time
+        self.alert_in_progress = None
         #
         while self.is_running:
             #
-            # konfig neu testen?
+            # ist die letzte Änderug der Konfigurationsdatei neuer als die
+            # hier gemerkte ÄÜnderungszeit?
             #
-            if self.current_config_modify_time > self.config_modify_time:
+            if self.config_last_modify_time > self.config_modify_time:
                 # Ok, da müsste was getan werden!
                 self.log.info("config changes detected...")
                 self.__configure_objects()
-                self.current_config_modify_time = self.config_modify_time
+                self.config_last_modify_time = self.config_modify_time
                 sleep(1)
+            #
+            # geräte neu finden?
+            #
             if int(time()) > self.timestamp_to_scan_devices:
                 # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
-                self.__find_available_devices()
+                # setzte die zeit für das nächste mal...
+                self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
+                # der lock soll von der Threadfunktion selber gelöst werden
+                self.discover_lock.acquire()
+                d_thread = Thread(target=self.__find_available_devices)
+                d_thread.start()
             #
             # ist irgend ein Alarm bereits am Ackern?
             #
             if self.alert_in_progress is not None:
-                for c_alert in self.alerts:
-                    if c_alert.alert_working_timestamp > 0:
-                        # der alarm ist in arbeit, schätze mal die Dauer ab
-                        if c_alert.alert_working_timestamp + c_alert.alert_duration_secounds > int(time()):
-                            # alarm sollte vorbei sein, stelle den wieder so her wie er soll
-                            c_alert.alert_working_timestamp = 0
-                            self.alert_in_progress = False
+                if not self.alert_in_progress.is_alive():
+                    # ist er schon hinüber, entferne ihn
+                    self.log.debug("remove stopped play thread...")
+                    del self.alert_in_progress
+                    self.alert_in_progress = None
+                    continue
+                if int(time()) > (self.alert_in_progress.time_to_off + 30):
+                    # immer noch vorhanden, dann töte ind beseitige das Teil
+                    if self.alert_in_progress.is_alive():
+                        self.log.info("kill play thread and join him while ending...")
+                        self.alert_in_progress.device_is_playing = False
+                        self.alert_in_progress.join()
+                        self.log.debug("kill play thread ... OK, killed")
+                    del self.alert_in_progress
+                    self.alert_in_progress = None
+                    continue
             #
             # jetzt schauen ob da was zu tun ist
             #
@@ -137,7 +159,12 @@ class SoundTouchAlertClock:
                 # ist ein Alarm vorhanden und ist einer in der nahen Zukunft?
                 # (wenn ja, Radios suchen und testen ob verfügbar)
                 #
+                self.alerts_lock.acquire()
                 for c_alert in self.alerts:
+                    # alarm enable?
+                    if not c_alert.alert_enabled:
+                        # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
+                        continue
                     # wiel lange / kein Alarm
                     time_to_alert = c_alert.sec_to_alert(5, 18)
                     if time_to_alert is not None and not c_alert.alert_prepeairing:
@@ -156,28 +183,28 @@ class SoundTouchAlertClock:
                         # ok, geräte sind bereit
                         #
                         if c_alert.alert_working_timestamp > 0:
-                            self.log.warning("this alert is working... not mak an new alert this time")
+                            self.log.warning("this alert is working... not make an new alert this time")
                             continue
                         # erzeuge einen Weckerthread
-                        play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
+                        self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
                         # markiere JETZT als Startzeitpunkt
                         c_alert.alert_working_timestamp = int(time())
-                        c_alert.alert_thread = play_alert_thread
-                        play_alert_thread.start()
-                        # TODO: gelegentlich prüfen...
+                        c_alert.alert_thread = self.alert_in_progress
+                        self.alert_in_progress.start()
+                self.alerts_lock.release()
             else:
-                # TODO: markierung prüfen, vorher setzten
                 # ein Alarm läuft, prüfe ob er beendet ist
-                self.log.debug("alert is working...")
+                # self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?
             #
             if int(time()) > self.next_config_check:
                 self.log.debug("interval for check for config changes reached, check modify time...")
+                # wann ist der nächste Check?
                 self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
-                # check mal, ob sich die Modify Zeit des Configfiles verändert hat
-                self.current_config_modify_time = self.__read_mod_time()
+                # erfrage die Zeit der letzten Änderung der Konfigurationsdatei
+                self.config_last_modify_time = self.__read_configfile_mod_time()
             sleep(.8)
         #
         # beendet
@@ -213,20 +240,27 @@ class SoundTouchAlertClock:
         Durchsuche das LAN nach BOSE Geräten
         :return: Anzahl gefundener Geräte
         """
-        self.log.debug("search available al_devices")
-        # alle eventuell vorhandenen löschen
-        #
-        # finde Geräte im Netzwerk
-        #
-        self.log.debug("discover soundtouch devices...")
-        _available_dev = discover_devices(timeout=3)  # Default timeout is 3 seconds
-        SoundTouchAlertClock.devices_lock.acquire()
-        self.available_devices.clear()
-        self.available_devices = _available_dev.copy()
-        SoundTouchAlertClock.devices_lock.release()
-        self.log.debug("discover soundtouch devices...OK")
-        self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
-        return len(self.available_devices)
+        try:
+            self.log.info("start thread for search available soundtouch devices...")
+            #
+            # finde Geräte im Netzwerk
+            #
+            self.log.debug("thread discover soundtouch devices...")
+            #
+            # gibt es das config objekt (sollte es schon...)
+            if self.config_read_obj is None:
+                # neui anlegen
+                self.config_read_obj = ConfigFileObj(self.log, self.config_file)
+            # lese die Daten...
+            _available_dev = self.config_read_obj.read_avail_devices()
+            SoundTouchAlertClock.devices_lock.acquire()
+            self.available_devices.clear()
+            self.available_devices = _available_dev.copy()
+            SoundTouchAlertClock.devices_lock.release()
+            self.log.info("start thread for search available soundtouch devices ends with {} found devices".format(
+                len(self.available_devices)))
+        finally:
+            self.discover_lock.release()
 
     def __get_available_devices(self):
         """
@@ -249,12 +283,12 @@ class SoundTouchAlertClock:
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
         SoundTouchAlertClock.devices_lock.acquire()
-        for device in self.available_devices:
+        for devname, device in self.available_devices.items():
             self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
-                                                                                                  device.config.name,
-                                                                                                  device.config.type,
-                                                                                                  device.host))
-            if re.match(match_pattern, device.config.name):
+                                                                                                  device['name'],
+                                                                                                  device['type'],
+                                                                                                  device['host']))
+            if re.match(match_pattern, devname):
                 self.log.debug("destination device found!")
                 SoundTouchAlertClock.devices_lock.release()
                 return device
@@ -270,25 +304,28 @@ class SoundTouchAlertClock:
         self.log.info("config from command changed, write to file...")
         if self.config_read_obj is not None:
             self.config_read_obj.write_config_file()
-        # zeitstempel setzten, sonst liest er das nochmal ein
-        self.config_modify_time = self.__read_mod_time()
-        self.current_config_modify_time = self.config_modify_time
-        # TODO: geht das dann?
+        # zeitstempel der geänderten Datei setzten, sonst liest er das nochmal ein
+        # und die Zeit lokale merken
+        self.config_modify_time = self.__read_configfile_mod_time()
+        self.config_last_modify_time = self.config_modify_time
         #######################################################################
         # Alarme einlesen                                                     #
         #######################################################################
+        self.alerts_lock.acquire()
         self.alerts.clear()
-        regex_alert = re.compile(r'^alert-\d{2}$')
+        self.alerts_lock.release()
         ConfigFileObj.config_lock.acquire()
         for section in self.config:
-            if not regex_alert.match(section):
+            if not SoundTouchAlertClock.REGEX_ALERT.match(section):
                 continue
             # es ist ein alert...
             self.log.debug("create RadioAlerts {}...".format(section))
             ConfigFileObj.config_lock.release()
             alert = RadioAlerts(self.log, self.config[section])
             ConfigFileObj.config_lock.acquire()
+            self.alerts_lock.acquire()
             self.alerts.append(alert)
+            self.alerts_lock.release()
             self.log.debug("create RadioAlerts {}...OK".format(section))
         ConfigFileObj.config_lock.release()
 
@@ -301,7 +338,7 @@ class SoundTouchAlertClock:
             self.__configure_objects()
         return None
 
-    def __read_mod_time(self):
+    def __read_configfile_mod_time(self):
         """
         speichere die letzte bearbeitungszeit der Konfiguration
         :return: die Zeit
@@ -317,7 +354,7 @@ class SoundTouchAlertClock:
         :return: None
         """
         # merke mir die Bearbeitungszeit
-        self.config_modify_time = self.__read_mod_time()
+        self.config_modify_time = self.__read_configfile_mod_time()
         if self.config_read_obj is None:
             self.config_read_obj = ConfigFileObj(self.log, self.config_file)
         else:
@@ -368,10 +405,10 @@ class SoundTouchAlertClock:
         #######################################################################
         # Alarme einlesen                                                     #
         #######################################################################
+        self.alerts_lock.acquire()
         self.alerts.clear()
-        regex_alert = re.compile(r'^alert-\d{2}$')
         for section in self.config:
-            if not regex_alert.match(section):
+            if not SoundTouchAlertClock.REGEX_ALERT.match(section):
                 continue
             # es ist ein alert...
             self.log.debug("create RadioAlerts {}...".format(section))
@@ -381,6 +418,7 @@ class SoundTouchAlertClock:
             self.alerts.append(alert)
             self.log.debug("create RadioAlerts {}...OK".format(section))
         ConfigFileObj.config_lock.release()
+        self.alerts_lock.release()
         # ENDE
 
     @staticmethod
@@ -398,11 +436,7 @@ class SoundTouchAlertClock:
         log = logging.getLogger("alert_clock_bose")
         log.setLevel(_my_loglevel)
         formatter = logging.Formatter("[%(asctime)s] %(levelname)s %(module)s: %(message)s", '%Y%m%d %H:%M:%S')
-        f_handler = logging.handlers.RotatingFileHandler(
-            _logfile,
-            maxBytes=5000000,
-            backupCount=5
-        )
+        f_handler = logging.handlers.RotatingFileHandler(_logfile, maxBytes=5000000, backupCount=5)
         if _console_log:
             c_handler = logging.StreamHandler()
             c_handler.setFormatter(formatter)

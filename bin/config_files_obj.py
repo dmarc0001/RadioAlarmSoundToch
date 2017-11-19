@@ -82,10 +82,54 @@ class ConfigFileObj:
         for section in new_config:
             self.config[section] = new_config[section]
         v_items = dict()
-        v_items['version'] = int(time())
+        v_items['version'] = int(time() * 100.0)
         self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config
+
+    def read_avail_devices(self):
+        """
+        Lese verfügbare soundtouch geräte aus externer Datei in
+        :return: Liste mit verfügbaren soundtouch Devices
+        """
+        _devices = dict()
+        # gibt es eine Datei dafür?
+        if self.config['global']['devices_file'] is None:
+            if self.log is not None:
+                self.log.error("not an file for soundtouch devices found in config!")
+                self.log.error("please insert in section [global] an key 'devices_file'")
+            else:
+                print("not an file for soundtouch devices found in config!")
+                print("please insert in section [global] an key 'devices_file'")
+            return _devices
+        #
+        # jetzt lies die Datei aus und stelle eine Konfiguration zur Verfügung
+        #
+        parser = ConfigParser()
+        parser.read(self.config['global']['devices_file'])
+        sections = parser.sections()
+        for section in sections:
+            if self.log is not None:
+                self.log.debug('device (section in config file)  "[{}]" found...'.format(section))
+            items = parser.items(section)
+            _complete_item = ConfigFileObj.__make_default_deviceitem()
+            for item in items:
+                name = item[0]
+                val = item[1]
+                if self.log is not None:
+                    self.log.debug("  [{}] => '{}' = '{}'".format(section, name, val))
+                _complete_item[name] = val
+            _devices[section] = _complete_item
+        return _devices
+
+    @staticmethod
+    def __make_default_deviceitem():
+        _item = dict()
+        _item['name'] = 'unknown'
+        _item['host'] = '127.0.0.1'
+        _item['port'] = '8090'
+        _item['type'] = 'unknown'
+        return _item
 
     @staticmethod
     def get_empty_configitem():
@@ -94,12 +138,12 @@ class ConfigFileObj:
     @staticmethod
     def __make_default_entrys():
         _items = dict()
-        _items['enable'] = False
+        _items['enable'] = 'false'
         _items['time'] = '06:00'
         _items['days'] = 'all'
         _items['date'] = None
         _items['source'] = 'PRESET_1'
-        _items['raise_vol'] = False
+        _items['raise_vol'] = 'false'
         _items['volume'] = '23'
         _items['devices'] = None
         _items['source_account'] = None
@@ -171,7 +215,7 @@ class ConfigFileObj:
                 self.log.debug("create section [{}]...".format(section))
             else:
                 print("create section [{}]...".format(section))
-            # eliminiere None al Value
+            # eliminiere None als Value
             _tmp_section = self.config[section]
             for key in _tmp_section.keys():
                 if _tmp_section[key] is None:
@@ -187,13 +231,19 @@ class ConfigFileObj:
             self.log.debug("write to {} ...".format(_new_file))
         else:
             print("write to {} ...".format(_new_file))
-        with open(_new_file, 'w') as configfile:
-            parser.write(configfile)
-        configfile.close()
-        if self.log is not None:
-            self.log.debug("write to {} ...OK".format(_new_file))
-        else:
-            print("write to {} ...OK".format(_new_file))
+        try:
+            with open(_new_file, 'w') as configfile:
+                parser.write(configfile)
+            configfile.close()
+            if self.log is not None:
+                self.log.debug("write to {} ...OK".format(_new_file))
+            else:
+                print("write to {} ...OK".format(_new_file))
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
         #
         # die alte configdatei in sicherung kopieren
         #
@@ -205,7 +255,13 @@ class ConfigFileObj:
             self.log.debug("copy config file to {} ...".format(new_filename))
         else:
             print("copy config file to {} ...".format(new_filename))
-        shutil.copyfile(self.config_file, new_filename )
+        try:
+            shutil.copyfile(self.config_file, new_filename)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(new_filename))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(new_filename))
         #
         # jetzt die neue config über die alte kopieren
         #
@@ -213,7 +269,14 @@ class ConfigFileObj:
             self.log.debug("copy new config file to {} ...".format(self.config_file))
         else:
             print("copy new config file to {} ...".format(self.config_file))
-        shutil.copyfile(_new_file, self.config_file)
+        try:
+            shutil.copyfile(_new_file, self.config_file)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug(
+                    "write to {} ...permission error! Check file/directory permisions.".format(self.config_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(self.config_file))
         #
         # lösche die alte "new" datei
         #
@@ -221,7 +284,13 @@ class ConfigFileObj:
             self.log.debug("remove temporary new config file {} ...".format(_new_file))
         else:
             print("remove temporary new config file to {} ...".format(_new_file))
-        os.remove(_new_file)
+        try:
+            os.remove(_new_file)
+        except PermissionError:
+            if self.log is not None:
+                self.log.debug("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
+            else:
+                print("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
         #
         self.dict_hash = self.__get_hashstr(self.config)
         return True

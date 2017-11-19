@@ -1,24 +1,33 @@
 //
 // Steuerung der Weckerfunkion von der Website aus
 //
+
+//
+// Reguläre Ausdrücke definieren
+//
+var regex_date  = /^\d{4}-\d{2}-\d{2}$/;
+var regex_time  = /^\d{2}:\d{2}$/;
+var regex_sec   = /^(\d+)s$/i;
+var regex_min   = /^(\d+)m$/i;
+var regex_std   = /^(\d+)h$/i;
+var regex_val   = /^(\d+).*$/i;
+var regex_true  = /true|yes|1|on/i;
+
+// 
+// globale Variablen für das Programm
+//
 var timerInterval = 5000;
 var timerIsRunning = false;
 var alert_status = '/tools/alerts.php';
 var alert_index = 'index.php';
 var ignoreTrigger = false;
-var regexTrue = /true|yes|1|on/i;
 var timerId = null;
 var configId = 0;
 var editDate = null;
-var regex_date = /^\d{4}-\d{2}-\d{2}$/;
-var regex_time = /^\d{2}:\d{2}$/;
-var regex_sec = /^(\d+)s$/i;
-var regex_min = /^(\d+)m$/i;
-var regex_std = /^(\d+)h$/i;
-var regex_val = /^(\d+).*$/i;
+var waitTrysWhileUpdate = 8;
 
 //
-// jQuery Mobile: wenn PAGE geänder ist, ausführen...
+// jQuery Mobile: wenn PAGE geändert ist, ausführen...
 //
 $(document).on('pagecontainershow', index_changePageAction);
 
@@ -81,7 +90,7 @@ function index_changePageAction(event, ui)
     }      
     // auf der EDIT Seite (Dialog) ein paar Sachen aktivieren
     console.debug("deactivate any things on the edit page...");
-    index_initEditPage();
+    edit_initEditPage();
   } 
   else if(toPage == 'delete-page')
   {
@@ -107,8 +116,10 @@ function index_changePageAction(event, ui)
 //
 function index_initIndexPage()
 {
+  configId = 0;
   console.log("init index page...");
   console.debug("reread alert status via timer ...");
+  util_sleep(1300);
   index_timerFunc();
   console.debug("reread alert status via timer ...OK");
 
@@ -284,6 +295,15 @@ function index_setStatusDataFunc(data)
 //
 function index_timerFunc()
 {
+  var trys = waitTrysWhileUpdate;
+  //
+  // kurz warten
+  //
+  while( timerIsRunning && trys > 0 )
+  {
+    trys = trys -1;
+    util_sleep(100);
+  }
   if (timerIsRunning )
   {
     return;
@@ -353,7 +373,16 @@ function index_recCheckindex_UpdateFunc(data)
 //
 function index_updateFunc()
 {
-  if (timerIsRunning )
+  var trys = waitTrysWhileUpdate;
+  //
+  // kurz warten
+  //
+  while( timerIsRunning && trys > 0 )
+  {
+    trys = trys -1;
+    util_sleep(100);
+  }
+  if (timerIsRunning)
   {
     return;
   }
@@ -530,7 +559,7 @@ function index_updateAlertTimeStamp(value_name, propertys)
 }
 
 //
-// setze wenn verändert den Sliderstatus in der INDEX Gui
+// setze wenn verändert den Schalterstatus on/off in der INDEX Gui
 //
 function updateAlertSlider(value_name, propertys)
 {
@@ -539,7 +568,7 @@ function updateAlertSlider(value_name, propertys)
   //
   // so, jetzt überlegen was passieren soll
   //
-  var alarmIsActive = regexTrue.test(propertys['enable']);
+  var alarmIsActive = regex_true.test(propertys['enable']);
   //
   // wenn enable verändert ist
   //
@@ -562,7 +591,7 @@ function updateAlertSlider(value_name, propertys)
 //
 // initialisiere die EDIT Page
 //
-function index_initEditPage()
+function edit_initEditPage()
 {
   var alertName = $('input#alert-name').val();
   console.log('init edit page for alert: ' + alertName + "...");
@@ -600,18 +629,18 @@ function index_initEditPage()
   // Initiiere das Update der Werte in der EDIT GUI
   // (ASYNCRON)
   //
-  index_updateEditGUI(alertName);
+  edit_updateEditGUI(alertName);
   //
   // Funktion beim klick auf SICHERN
   //
-  $('a#save-alert').click(index_saveAlertValues);
+  $('a#save-alert').click(edit_saveAlertValues);
   console.log('init edit page for alert: ' + alertName + "...OK");
 }
 
 //
 // hole die aktuellen Einstellugnen des Alarms
 //
-function index_updateEditGUI(alertName)
+function edit_updateEditGUI(alertName)
 {
   console.debug('ask alert properties (' + alertName + ')...');
   //
@@ -625,7 +654,7 @@ function index_updateEditGUI(alertName)
   $.getJSON(
     alert_status,           /* die URL */
     requestData,            /* die GET Parameter */
-    index_recAlertStatusData      /* die "success" Funktion */
+    edit_recAlertStatusData      /* die "success" Funktion */
   );
 }
 
@@ -633,14 +662,15 @@ function index_updateEditGUI(alertName)
 // Die Funktion, welche beim Empfang der Daten für den zu bearbeitenden 
 // Alarm aufgerufen wird
 //
-function index_recAlertStatusData(data)
+function edit_recAlertStatusData(data)
 {
+  var daysArr = [];
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
   // Ebene 2 == key: Wertename: value: Wert
   //
-  console.debug("recived data from index_updateEditGUI...")
+  console.debug("recived data from edit_updateEditGUI...")
   //
   // zunächst ebene 1 durchlaufen, die Alarmnamen, kann hie reigentlichn nur der eine, gesuchte sein
   //
@@ -650,7 +680,7 @@ function index_recAlertStatusData(data)
     {
       if (value_name == 'error')
       {
-        console.error("while index_updateEditGUI(): error recived!");
+        console.error("while edit_updateEditGUI(): error recived!");
       }
       else
       {
@@ -668,9 +698,16 @@ function index_recAlertStatusData(data)
         }
         //
         // Wochentage durchlaufen
-        // 
+        //
         daysArr = propertys['days'].split(',');
-
+        //
+        // wenn da keine Wochentage sind, dann JEDEN TAG
+        //
+        if( daysArr.length == 1 && daysArr[0].length < 2 )
+        {
+          console.warn("weekdays are empty, set all workdays!");
+          daysArr = "mo,tu,we,th,fr".split(',');
+        }
         // Jetzt für alle Tage prüfen und setzen
         // Montag
         if( $.inArray('mo', daysArr) > -1 ) { util_editCheckboxState( $('input#cb-monday'), true ); } else { util_editCheckboxState( $('input#cb-monday'), false ); }
@@ -778,8 +815,9 @@ function index_recAlertStatusData(data)
 //
 // Funktion zum sichern eines ALARMES
 //
-function index_saveAlertValues()
+function edit_saveAlertValues()
 {
+  var plausible = true;
   // 
   // whichAlert ist dann entweder "alert-xx" oder "new"
   //
@@ -799,6 +837,7 @@ function index_saveAlertValues()
   //
   // Datum und Zeit, falls gesetzt
   // und mit einem Trick auf fest 2 digits formatieren
+  //
   var dateTime = $('input#time-picker').datebox('getTheDate');
   var hourStr =  "000" + dateTime.getHours();
   var minuteStr = "000" + dateTime.getMinutes();
@@ -873,7 +912,7 @@ function index_saveAlertValues()
     {
       devicesArray.push($(this).attr('real_name'));
     }
-  );
+  ); 
   propertyArray.alert_devices = devicesArray.join();
   if( propertyArray.alert_devices.length == 0 )
   {
@@ -892,6 +931,32 @@ function index_saveAlertValues()
   //
   propertyArray.alert_duration = $('input#alert-duration').val() + "m";
   //
+  // an dieser stelle einmal testen, ob der Alarm plausibel ist
+  //
+  if( devicesArray.length == 0)
+  {
+    // KEIN Gerät ausgewählt! ABBRUCH und Fehlermeldung
+    alert("KEIN GERÄT AUSGEWÄHLT!, NICHT SPEICHERN");
+    plausible = false;
+  }
+  if( propertyArray.alert_source.length < 2 )
+  {
+    alert("KEIN SENDER AUSGEWÄHLT! NICHT SPEICHERN");
+    plausible = false
+  }
+  if( propertyArray.alert_volume < 5 )
+  {
+    alert("LAUTSTÄRKE ZU NIEDRIG! NICHT SPEICHERN");
+    plausible = false;
+  }
+  //
+  // jetzt davon abhängig reagieren
+  //
+  if( ! plausible )
+  {
+    return;
+  }
+  //
   // anfrageparameter bauen
   //
   propertyArray['edit-alert'] = whichAlert.val();
@@ -902,7 +967,7 @@ function index_saveAlertValues()
   $.getJSON(
     alert_status,           /* die URL */
     requestData,            /* die GET Parameter */
-    index_recAlertSave            /* die "success" Funktion */
+    edit_recAlertSave            /* die "success" Funktion */
   );
   console.log('SAVE ALERT: ' + whichAlert.val() + "...OK"); 
 }
@@ -910,7 +975,7 @@ function index_saveAlertValues()
 //
 // Callback Funktion beim sichern eines alarmes
 //
-function index_recAlertSave(data)
+function edit_recAlertSave(data)
 {
   //
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
@@ -927,7 +992,7 @@ function index_recAlertSave(data)
     {
       if (value_name == 'error')
       {
-        console.error("while index_saveAlertValues(): error recived!");
+        console.error("while edit_saveAlertValues(): error recived!");
       }
       else
       {
@@ -935,7 +1000,7 @@ function index_recAlertSave(data)
       }
     }
   );
-  console.debug("recived data from saverequest...OK")
+  console.debug("recived data from saverequest...OK");
 }
 
 /*#############################################################################
@@ -1141,5 +1206,13 @@ function util_getSecondsFromString( _secStr )
   }
   console.error( "time distance string (" + secStr + ") is not an valid string");
   return(0);
+}
+
+//
+// eine kleine sleep Funtion
+//
+function util_sleep(ms) 
+{
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
