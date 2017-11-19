@@ -82,7 +82,7 @@ class ConfigFileObj:
         for section in new_config:
             self.config[section] = new_config[section]
         v_items = dict()
-        v_items['version'] = int(time())
+        v_items['version'] = int(time() * 100.0)
         self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config

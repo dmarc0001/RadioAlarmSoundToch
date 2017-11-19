@@ -36,7 +36,7 @@ class RadioCommandServer(Thread):
         :param _config das Config Objekt
         """
         Thread.__init__(self)
-        self.lock = Lock()
+        self.command_lock = Lock()
         self.log = _log
         self.config = _config
         self.available_devices_callback = _devices_callback
@@ -90,12 +90,21 @@ class RadioCommandServer(Thread):
                     break;
                 #
                 if data:
+                    # den Teil hier schützen
+                    self.command_lock.acquire()
                     response = self.__commandparser(data)
                     if not self.is_running:
+                        # schutz beenden
+                        self.command_lock.release()
                         break;
-                    # TODO: sent_count prüfen
                     sent_count = self.s_socket.sendto(response, address)
-                    self.log.debug("send echo to {}".format(address))
+                    # Schutz beenden
+                    self.command_lock.release()
+                    self.log.debug("send echo to {}, {} bytes...".format(address, sent_count))
+                    # Warnung wenn das nicht so hinhaut
+                    if sent_count != len(response):
+                        self.log.warning("there is an difference in lenght between to sent data and sendet data! " +
+                                         "to send: {} bytes, sendet: {} bytes".format(len(response), sent_count))
             except socket.timeout:
                 if not self.is_running:
                     break;
@@ -110,19 +119,20 @@ class RadioCommandServer(Thread):
         Gibt von aussen die Anweisung den Thread zu beenden
         :return:
         """
-        # TODO: callbacks löschen
         self.is_running = False
+        # lösche callbacks
         self.clear_on_config_change()
 
     def __commandparser(self, data):
         """
         Parse Kommando und gib Antwort als Binary String
-        data: binary String
+        :data binary String
+        :return binary string
         """
         # zum bearbeiten einen String daraus machen
         cmdstr = data.decode('utf-8')
         self.log.debug("cmd: %s" % cmdstr)
-        # json parsen und Objekt daraus machen
+        # json parsen und dictonary Objekt daraus machen
         cmd = json.loads(cmdstr)
         #
         # ist es ein GET Kommando?
@@ -144,8 +154,8 @@ class RadioCommandServer(Thread):
     def __get_cmd_parse(self, _cmd: dict):
         """
         Ein GET Kommando empfangen, hier bearbeiten
-        :param _cmd: JSON
-        :return:
+        :param _cmd: ein dictonary mit Daten
+        :return binary string (JSON)
         """
         _answers = dict()
         match_pattern = re.compile('^alert-\d{2}$', re.IGNORECASE)
@@ -191,13 +201,9 @@ class RadioCommandServer(Thread):
                         dev_info['host'] = device['host']
                         _answers[devname] = dev_info
                     del _devices
-
-            #
-            # wenn es ein NEUER Eintrag wird
-            #
             elif 'new' in sitem:
                 # neuen Eintrag vorbereiten
-                self.log.info("get NEW alert config")
+                self.log.info("get a NEW alert config")
                 new_item = ConfigFileObj.get_empty_configitem()
                 alert_num = self.__get_free_alert_number()
                 if alert_num is None:
@@ -218,7 +224,7 @@ class RadioCommandServer(Thread):
                 # der Name des Eintrages:
                 _answers["new"] = new_item
             elif re.match(match_pattern, sitem):
-                # passt in das Muster
+                # passt in das Muster (alle "sonstigen" alarme)
                 ConfigFileObj.config_lock.acquire()
                 try:
                     if self.config[sitem] is not None:
@@ -249,13 +255,14 @@ class RadioCommandServer(Thread):
             #
             alert_name = sitem['alert']
             if alert_name not in self.config:
-                # da ist ein NEUNER Alarm drin
+                # da ist ein NEUNER Alarm angekommen == NEW
                 self.log.debug("found NEW alert {} with set commands".format(alert_name))
                 _alert = ConfigFileObj.get_empty_configitem()
                 ConfigFileObj.config_lock.acquire()
                 self.config[alert_name] = _alert
                 ConfigFileObj.config_lock.release()
             else:
+                # EDIT Alarm
                 self.log.debug("found alert {} with set commands".format(alert_name))
             #
             # nun alle Eigenschaften durch
@@ -271,7 +278,7 @@ class RadioCommandServer(Thread):
                 else:
                     self.config[alert_name][set_command] = sitem[set_command]
             v_items = dict()
-            v_items['version'] = int(time())
+            v_items['version'] = int(time() * 100.0)
             self.config['version'] = v_items
             ConfigFileObj.config_lock.release()
             # ende der kommandos per alarm
@@ -307,8 +314,8 @@ class RadioCommandServer(Thread):
     def __delete_cmd_parse(self, _cmd: dict):
         """
         Ein DELETE Kommando empfangen, hier bearbeiten
-        :param _cmd: das Kommando als JSON Objekt
-        :return: ergebnis als JSON
+        :param _cmd: das Kommando als dictonary Objekt
+        :return: ergebnis als JSON binary string
         """
         for sitem in _cmd:
             #
@@ -321,7 +328,7 @@ class RadioCommandServer(Thread):
             if alert_name in self.config:
                 del self.config[alert_name]
                 v_items = dict()
-                v_items['version'] = int(time())
+                v_items['version'] = int((time() * 100.0))
                 self.config['version'] = v_items
                 ConfigFileObj.config_lock.release()
                 if self.on_config_change is not None:
