@@ -8,7 +8,7 @@ import re
 from radio_alerts import RadioAlerts
 from libsoundtouch.device import SoundTouchDevice
 from libsoundtouch.utils import Source
-from threading import Thread
+from threading import Thread, Lock
 
 __author__ = 'Dirk Marciniak'
 __copyright__ = 'Copyright 2017'
@@ -37,8 +37,10 @@ class SoundtouchPlayObject(Thread):
         self.play_source = None
         self.play_station = None
         self.zone_status = None
+        self.callback_volume_lock = Lock()
+        self.status_listener_lock = Lock()
         #
-        # schnittmenge der gefundenen und der geforderten Devices machen
+        # Schnittmenge der gefundenen und der geforderten Devices machen
         #
         self.log.debug("device source is {}...".format(self.play_source))
         for device_name in self.alert.alert_devices:
@@ -358,12 +360,14 @@ class SoundtouchPlayObject(Thread):
         :return: NIX
         """
         # ändert sich die Lautstärke ohne fading...
+        self.callback_volume_lock.acquire()
         play_volume = volume.actual
-        self.log.info("volume changed to: {}, alert current is {}".format(play_volume, self.curr_vol))
+        self.log.debug("volume changed to: {}, alert current is {}".format(play_volume, self.curr_vol))
         if play_volume != self.curr_vol and self.alert_volume_incr:
             # ups, der user fingert daran rum
             self.alert_volume_incr = False
             self.log.warning("user has manual changed volume, switch fading off (for this alert only)...")
+        self.callback_volume_lock.release()
 
     def __status_listener(self, status):
         """
@@ -374,6 +378,7 @@ class SoundtouchPlayObject(Thread):
         """
         # self.log.info("status changed to: {}".format(status.source))
         # wenn der Status sich ändert (nach STANDBY)
+        self.status_listener_lock.acquire()
         play_source = status.source
         play_station = status.station_name
         if play_source is not None:
@@ -382,6 +387,7 @@ class SoundtouchPlayObject(Thread):
                 # Gerät auf STANDBY, das war es dann
                 self.log.warning("device manual switched to STANDBY, stop thread...")
                 self.is_playing = False
+                self.status_listener_lock.release()
                 return
             # ist station und source vorhanden?
             if play_station is not None:
@@ -390,9 +396,10 @@ class SoundtouchPlayObject(Thread):
                     self.log.info(
                         "station name changed to: {} / source changed to {}".format(status.station_name, play_source))
                     # da wurde dran rumgemacht, Thread beenden, User das Feld überlassen
+                    self.log.warning("device manual switched to {}, stop thread...".format(play_station))
                     self.is_playing = False
                     self.is_switchoff = False
-                    self.log.warning("device manual switched to {}, stop thread...".format(play_station))
+        self.status_listener_lock.release()
 
 
 def main():
