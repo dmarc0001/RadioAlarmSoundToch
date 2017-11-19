@@ -39,6 +39,9 @@ class SoundtouchPlayObject(Thread):
         self.zone_status = None
         self.callback_volume_lock = Lock()
         self.status_listener_lock = Lock()
+        self.zone_listener_lock = Lock()
+        #
+        self.log.debug("create object...")
         #
         # Schnittmenge der gefundenen und der geforderten Devices machen
         #
@@ -59,6 +62,7 @@ class SoundtouchPlayObject(Thread):
         Destruktor...
         :return:
         """
+        self.log.debug("delete object...")
 
     def run(self):
         """
@@ -66,6 +70,7 @@ class SoundtouchPlayObject(Thread):
         :return:
         """
         self.is_playing = True
+        self.log.debug("start thread...")
         #
         # neues Gerätreobjekt aus dem ersten Gerät machen
         # und anschalten
@@ -166,10 +171,14 @@ class SoundtouchPlayObject(Thread):
         self.master_device.clear_volume_listeners()
         self.master_device.clear_zone_status_listeners()
         # ACHTUNG in der library verändert
-        self.master_device.stop_notification()
+        try:
+            self.master_device.stop_notification()
+        except (RuntimeError, NameError, TypeError):
+            self.log.error("the library libsoundtouch.device ist edit from this author," +
+                           "he addet the function 'stop_notification()' to the source")
         self.alert.alert_working_timestamp = 0
         self.alert.alert_done = True
-        self.log.debug("thread wass endet...")
+        self.log.debug("thread was endet...")
 
     def __exist_device_in_list(self, _name_to_find: str, _avail_list: dict):
         """
@@ -225,7 +234,7 @@ class SoundtouchPlayObject(Thread):
             count_devices += 1
         sleep(.6)
         #
-        # es kann eine exceptioon geben, versuche es ein paar mal in diesem Fall
+        # es kann eine exception geben, versuche es ein paar mal in diesem Fall
         #
         curr_stat = None
         curr_stat_count = 0
@@ -265,7 +274,7 @@ class SoundtouchPlayObject(Thread):
             for slave in self.slave_devices:
                 slave.set_volume(self.curr_vol)
             sleep(.90)
-            # ende
+        # ende
 
     def __fade_out(self, _from, _to):
         """
@@ -284,7 +293,7 @@ class SoundtouchPlayObject(Thread):
             for slave in self.slave_devices:
                 slave.set_volume(self.curr_vol)
             sleep(.40)
-            # ende
+        # ende
 
     def __tune_channel(self):
         """
@@ -339,6 +348,7 @@ class SoundtouchPlayObject(Thread):
         :param zone_status:
         :return:
         """
+        self.zone_listener_lock.acquire()
         if zone_status:
             self.log.info(zone_status.master_id)
             if zone_status.master_id != self.zone_status.master_id:
@@ -351,6 +361,7 @@ class SoundtouchPlayObject(Thread):
             self.log.info('not more an Zone')
             # lösche slaves
             self.slave_devices.clear()
+        self.zone_listener_lock.release()
 
     def __volume_listener(self, volume):
         """
