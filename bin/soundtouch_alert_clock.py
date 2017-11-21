@@ -5,11 +5,11 @@ import logging
 import logging.handlers
 import signal
 import os
-from time import sleep, time
 import re
+from time import sleep, time
 from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
-from udp_server_thread import RadioCommandServer
+from radio_command_server import RadioCommandServer
 from soundtouch_play_object import SoundtouchPlayObject
 from threading import Lock, Thread
 
@@ -78,6 +78,7 @@ class SoundTouchAlertClock:
         self.log.info("instantiate SoundTouchAlertClock in {}...".format(__file__))
         self.is_running = True
         self.udp_serverthread = RadioCommandServer(self.log, self.config, self.__get_available_devices)
+        self.udp_serverthread.set_new_config(self.config)
         self.udp_serverthread.start()
         self.udp_serverthread.set_on_config_change(self.__on_config_change)
         self.next_config_check = int(time())  # wann sol das nächste mal die Config getestet werden
@@ -106,7 +107,6 @@ class SoundTouchAlertClock:
         self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         # die aktuelle zeit der letzten änderung merken
         self.config_last_modify_time = self.config_modify_time
-        self.alert_in_progress = None
         #
         while self.is_running:
             #
@@ -123,7 +123,7 @@ class SoundTouchAlertClock:
             # geräte neu finden?
             #
             if int(time()) > self.timestamp_to_scan_devices:
-                # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
+                # Liste zu alt, erneuere sie, Discovering findet im System separat statt (externer Prozess)
                 # setzte die zeit für das nächste mal...
                 self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
                 # der lock soll von der Threadfunktion selber gelöst werden
@@ -134,22 +134,16 @@ class SoundTouchAlertClock:
             # ist irgend ein Alarm bereits am Ackern?
             #
             if self.alert_in_progress is not None:
-                if not self.alert_in_progress.is_alive():
-                    # ist er schon hinüber, entferne ihn
-                    self.log.debug("remove stopped play thread...")
-                    del self.alert_in_progress
-                    self.alert_in_progress = None
-                    continue
-                if int(time()) > (self.alert_in_progress.time_to_off + 30):
-                    # immer noch vorhanden, dann töte ind beseitige das Teil
-                    if self.alert_in_progress.is_alive():
-                        self.log.info("kill play thread and join him while ending...")
-                        self.alert_in_progress.device_is_playing = False
-                        self.alert_in_progress.join()
-                        self.log.debug("kill play thread ... OK, killed")
-                    del self.alert_in_progress
-                    self.alert_in_progress = None
-                    continue
+                self.alerts_lock.acquire()
+                for c_alert in self.alerts:
+                    if c_alert.alert_working_timestamp > 0:
+                        # der alarm ist in arbeit, schätze mal die Dauer ab
+                        if c_alert.alert_working_timestamp + c_alert.alert_duration_secounds > int(time()):
+                            # alarm sollte vorbei sein, stelle den wieder so her wie er soll
+                            self.log.debug("alert {} is off, set markers to off!".format(c_alert.alert_note))
+                            c_alert.alert_working_timestamp = 0
+                            self.alert_in_progress = None
+                self.alerts_lock.release()
             #
             # jetzt schauen ob da was zu tun ist
             #
@@ -184,17 +178,20 @@ class SoundTouchAlertClock:
                         #
                         if c_alert.alert_working_timestamp > 0:
                             self.log.warning("this alert is working... not make an new alert this time")
+                            self.alert_in_progress = int(time())
                             continue
                         # erzeuge einen Weckerthread
-                        self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
+                        play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
                         # markiere JETZT als Startzeitpunkt
                         c_alert.alert_working_timestamp = int(time())
-                        c_alert.alert_thread = self.alert_in_progress
-                        self.alert_in_progress.start()
+                        c_alert.alert_thread = play_alert_thread
+                        play_alert_thread.start()
+                        self.alert_in_progress = int(time())
                 self.alerts_lock.release()
             else:
+                # TODO: markierung prüfen, vorher setzten
                 # ein Alarm läuft, prüfe ob er beendet ist
-                # self.log.debug("alert is working...")
+                self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?
@@ -301,21 +298,26 @@ class SoundTouchAlertClock:
         Callback, dass die Config geändert wurde
         :param _timestamp:
         """
-        self.log.info("config from command changed, write to file...")
+        self.log.info("callback: config was changed, comes from udp-server...")
+        # nächster Check auf Änderugnen später...
+        self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         if self.config_read_obj is not None:
+            self.log.debug("initiate write config to file...")
             self.config_read_obj.write_config_file()
+            sleep(.3)
         # zeitstempel der geänderten Datei setzten, sonst liest er das nochmal ein
         # und die Zeit lokale merken
-        self.config_modify_time = self.__read_configfile_mod_time()
+        self.config_last_modify_time = self.__read_configfile_mod_time()
         self.config_last_modify_time = self.config_modify_time
         #######################################################################
-        # Alarme einlesen                                                     #
+        # Alarme neu aus der configuration im RAM einlesen                    #
         #######################################################################
         self.alerts_lock.acquire()
         self.alerts.clear()
         self.alerts_lock.release()
         ConfigFileObj.config_lock.acquire()
         for section in self.config:
+            # lies nur die alert-xx Einträge
             if not SoundTouchAlertClock.REGEX_ALERT.match(section):
                 continue
             # es ist ein alert...
@@ -360,6 +362,9 @@ class SoundTouchAlertClock:
         else:
             self.config_read_obj.read_configfile(self.config_file)
         self.config = self.config_read_obj.config_object
+        # falls ein UDB-Thread existiert
+        if self.udp_serverthread is not None:
+            self.udp_serverthread.set_new_config(self.config)
         ConfigFileObj.config_lock.acquire()
         #######################################################################
         # DEFAULT                                                             #

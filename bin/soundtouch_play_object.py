@@ -37,7 +37,6 @@ class SoundtouchPlayObject(Thread):
         self.play_source = None
         self.play_station = None
         self.zone_status = None
-        self.__time_to_off = 0
         self.callback_volume_lock = Lock()
         self.status_listener_lock = Lock()
         self.zone_listener_lock = Lock()
@@ -71,14 +70,9 @@ class SoundtouchPlayObject(Thread):
         :return:
         """
         self.is_playing = True
-        #
-        # setze die zeit, wann der Alarm ausgeschaltet wird
-        #
-        __current_time = int(time())
-        self.__time_to_off = self.duration + __current_time
         self.log.debug("start thread...")
         #
-        # neues Geräteobjekt aus dem ersten Gerät machen
+        # neues Gerätreobjekt aus dem ersten Gerät machen
         # und anschalten
         #
         self.master_device = self.__create_sound_device()
@@ -109,10 +103,15 @@ class SoundtouchPlayObject(Thread):
         # vorbereitung ist vorbei...
         self.alert.alert_prepairing = False
         #
+        # setze die zeit, wann der Alarm ausgeschaltet wird
+        #
+        __current_time = int(time())
+        __time_to_off = self.duration + __current_time
+        #
         # buffering abwarten
         #
         curr_stat = self.master_device.status().play_status
-        while self.is_playing and self.__time_to_off > int(time()) and curr_stat != 'PLAY_STATE':
+        while self.is_playing and __time_to_off > int(time()) and curr_stat != 'PLAY_STATE':
             sleep(.8)
             curr_stat = self.master_device.status().play_status
             self.log.debug("wait while buffering, state: {}...".format(curr_stat))
@@ -138,9 +137,9 @@ class SoundtouchPlayObject(Thread):
         #
         # Spielen, bis der Alarm zuende ist
         #
-        while self.is_playing and self.__time_to_off > int(time()):
+        while self.is_playing and __time_to_off > int(time()):
             sleep(1.6)
-            wait_time = int(self.__time_to_off - int(time()))
+            wait_time = int(__time_to_off - int(time()))
             self.log.debug("device {} alert running for {} seconds".format(self.master_device.config.name, wait_time))
         #
         # wenn wieder ausgeschaltet werden soll
@@ -179,7 +178,6 @@ class SoundtouchPlayObject(Thread):
                            "he addet the function 'stop_notification()' to the source")
         self.alert.alert_working_timestamp = 0
         self.alert.alert_done = True
-        self.is_playing = False
         self.log.debug("thread was endet...")
 
     def __exist_device_in_list(self, _name_to_find: str, _avail_list: dict):
@@ -269,13 +267,14 @@ class SoundtouchPlayObject(Thread):
         """
         self.curr_vol = _from
         __dest_vol = _to
+        # TODO: konstante zeit, dafür die Schritte nd die Dauer errechnen
         while self.is_playing and (self.curr_vol < __dest_vol) and self.alert_volume_incr:
             self.log.debug("volume: {}...".format(self.curr_vol))
             self.curr_vol = self.curr_vol + 2
             self.master_device.set_volume(self.curr_vol)
             for slave in self.slave_devices:
                 slave.set_volume(self.curr_vol)
-            sleep(.90)
+            sleep(1.20)
         # ende
 
     def __fade_out(self, _from, _to):
@@ -413,21 +412,6 @@ class SoundtouchPlayObject(Thread):
                     self.is_playing = False
                     self.is_switchoff = False
         self.status_listener_lock.release()
-
-    @property
-    def time_to_off(self):
-        """Zeitpunkt für ende des Threads"""
-        return self.__time_to_off
-
-    @property
-    def device_is_playing(self):
-        """Status, ob noch gespielt wird"""
-        return self.is_playing
-
-    @device_is_playing.setter
-    def device_is_playing(self, _pl: bool):
-        """setze Status, ob noch gespielt wird"""
-        self.is_playing = _pl
 
 
 def main():

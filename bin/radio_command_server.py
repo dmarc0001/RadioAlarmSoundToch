@@ -6,6 +6,7 @@ from time import sleep, time
 from threading import Thread, Lock
 import logging
 import logging.handlers
+import hashlib
 import signal
 import re
 import socket
@@ -43,6 +44,8 @@ class RadioCommandServer(Thread):
         self.s_socket = None
         self.on_config_change = None
         self.is_running = False
+        self.config_hash = dict()
+        self.config_hash['version'] = self.__get_hashstr(self.config)
         # self.is_socket_usable = True
         self.log.debug("instantiate RadioCommandServer...")
 
@@ -53,6 +56,15 @@ class RadioCommandServer(Thread):
         """
         self.log.debug("thread destructor...")
         self.log.debug("thread destructor...OK")
+
+    def set_new_config(self, _config: dict ):
+        """
+        übergibt eine neue, neu eingelesene Konfiguration
+        :param _config: Konfig-Objekt
+        :return:
+        """
+        self.config = _config
+        self.config_hash['version'] = self.__get_hashstr(self.config)
 
     def set_on_config_change(self, callback):
         """
@@ -166,8 +178,7 @@ class RadioCommandServer(Thread):
             if 'config-id' in sitem:
                 # welche version der CONFIG liegt vor (Änderung???)
                 ConfigFileObj.config_lock.acquire()
-                # { "version": "000000000" }
-                response = json.dumps(self.config['version']).encode(encoding='utf-8')
+                response = json.dumps(self.config_hash).encode(encoding='utf-8')
                 ConfigFileObj.config_lock.release()
                 return response
             elif 'config' in sitem:
@@ -277,14 +288,14 @@ class RadioCommandServer(Thread):
                     self.config[alert_name][set_command] = " "
                 else:
                     self.config[alert_name][set_command] = sitem[set_command]
-            v_items = dict()
-            v_items['version'] = int(time() * 100.0)
-            self.config['version'] = v_items
             ConfigFileObj.config_lock.release()
             # ende der kommandos per alarm
         # ende der alarme
         # es scheint alles geklappt zu haben
+        # noch schnell den aktuellen hashwert berechnen (besser als version)
+        self.config_hash['version'] = self.__get_hashstr(self.config)
         self.log.debug("set command for alert(s) successful!")
+        # callback, wenn erforderlich
         if self.on_config_change is not None:
             self.log.debug("call on_config_change...")
             self.on_config_change(int(time()))
@@ -324,20 +335,17 @@ class RadioCommandServer(Thread):
             #
             alert_name = sitem['alert']
             self.log.debug("found alert {} with DELETE command".format(alert_name))
-            ConfigFileObj.config_lock.acquire()
             if alert_name in self.config:
+                ConfigFileObj.config_lock.acquire()
                 del self.config[alert_name]
-                v_items = dict()
-                v_items['version'] = int((time() * 100.0))
-                self.config['version'] = v_items
                 ConfigFileObj.config_lock.release()
+                self.config_hash['version'] = self.__get_hashstr(self.config)
                 if self.on_config_change is not None:
                     self.on_config_change(int(time()))
                 return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(
                     encoding='utf-8')
             else:
                 self.log.fatal("to delete alert {} is not found in config...".format(alert_name))
-                ConfigFileObj.config_lock.release()
                 return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(
                     encoding='utf-8')
                 # ENDE __set_cmd_parse
@@ -386,6 +394,20 @@ class RadioCommandServer(Thread):
             finally:
                 self.log.debug("close udp socket...OK")
         return None
+
+    @staticmethod
+    def __get_hashstr(_config_object: dict):
+        """
+        Errechne die MD5 Summe eines configobjektes zum Vergleich
+        :param _config_object: dasa objekt zum vergleich
+        :return: HEX Ausgabe des Hashwertes
+        """
+        hashobj = hashlib.md5()
+        json_str = json.dumps(_config_object, sort_keys=True).encode('utf-8')
+        hashobj.update(json_str)
+        dig = hashobj.hexdigest()
+        return dig
+        # return hashobj.update(json.dumps(_config_object, sort_keys=True).encode('utf-8')).hexdigest()
 
 
 def main():
