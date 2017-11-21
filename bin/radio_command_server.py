@@ -243,6 +243,7 @@ class RadioCommandServer(Thread):
                         _answers[sitem] = self.config[sitem]
                 except KeyError:
                     self.log.error("unknown (new?) alert to ask: {}".format(sitem))
+                    self.config_hash['version'] = self.__get_hashstr(self.config)
                 finally:
                     ConfigFileObj.config_lock.release()
             else:
