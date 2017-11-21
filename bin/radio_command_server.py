@@ -335,17 +335,17 @@ class RadioCommandServer(Thread):
             #
             alert_name = sitem['alert']
             self.log.debug("found alert {} with DELETE command".format(alert_name))
-            ConfigFileObj.config_lock.acquire()
             if alert_name in self.config:
+                ConfigFileObj.config_lock.acquire()
                 del self.config[alert_name]
                 ConfigFileObj.config_lock.release()
+                self.config_hash['version'] = self.__get_hashstr(self.config)
                 if self.on_config_change is not None:
                     self.on_config_change(int(time()))
                 return json.dumps({'ok': "alert {} is deleted in config...".format(alert_name)}).encode(
                     encoding='utf-8')
             else:
                 self.log.fatal("to delete alert {} is not found in config...".format(alert_name))
-                ConfigFileObj.config_lock.release()
                 return json.dumps({'error': "to delete alert {} is not found in config...".format(alert_name)}).encode(
                     encoding='utf-8')
                 # ENDE __set_cmd_parse
