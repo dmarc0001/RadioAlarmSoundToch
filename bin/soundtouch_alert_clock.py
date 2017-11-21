@@ -9,8 +9,12 @@ from time import sleep, time
 import re
 from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
+<<<<<<< HEAD
 from udp_server_thread import RadioCommandServer
 from libsoundtouch import discover_devices
+=======
+from radio_command_server import RadioCommandServer
+>>>>>>> origin/develop/current
 from soundtouch_play_object import SoundtouchPlayObject
 from threading import Lock, Thread
 
@@ -79,6 +83,7 @@ class SoundTouchAlertClock:
         self.log.info("instantiate SoundTouchAlertClock in {}...".format(__file__))
         self.is_running = True
         self.udp_serverthread = RadioCommandServer(self.log, self.config, self.__get_available_devices)
+        self.udp_serverthread.set_new_config(self.config)
         self.udp_serverthread.start()
         self.udp_serverthread.set_on_config_change(self.__on_config_change)
         self.next_config_check = int(time())  # wann sol das nächste mal die Config getestet werden
@@ -123,7 +128,7 @@ class SoundTouchAlertClock:
             # geräte neu finden?
             #
             if int(time()) > self.timestamp_to_scan_devices:
-                # Liste zu alt, erneuere sie, beim ersten Start sollte gleich ein discover passieren
+                # Liste zu alt, erneuere sie, Discovering findet im System separat statt (externer Prozess)
                 # setzte die zeit für das nächste mal...
                 self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
                 # der lock soll von der Threadfunktion selber gelöst werden
@@ -298,21 +303,26 @@ class SoundTouchAlertClock:
         Callback, dass die Config geändert wurde
         :param _timestamp:
         """
-        self.log.info("config from command changed, write to file...")
+        self.log.info("callback: config was changed, comes from udp-server...")
+        # nächster Check auf Änderugnen später...
+        self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         if self.config_read_obj is not None:
+            self.log.debug("initiate write config to file...")
             self.config_read_obj.write_config_file()
+            sleep(.3)
         # zeitstempel der geänderten Datei setzten, sonst liest er das nochmal ein
         # und die Zeit lokale merken
-        self.config_modify_time = self.__read_configfile_mod_time()
+        self.config_last_modify_time = self.__read_configfile_mod_time()
         self.config_last_modify_time = self.config_modify_time
         #######################################################################
-        # Alarme einlesen                                                     #
+        # Alarme neu aus der configuration im RAM einlesen                    #
         #######################################################################
         self.alerts_lock.acquire()
         self.alerts.clear()
         self.alerts_lock.release()
         ConfigFileObj.config_lock.acquire()
         for section in self.config:
+            # lies nur die alert-xx Einträge
             if not SoundTouchAlertClock.REGEX_ALERT.match(section):
                 continue
             # es ist ein alert...
@@ -357,6 +367,9 @@ class SoundTouchAlertClock:
         else:
             self.config_read_obj.read_configfile(self.config_file)
         self.config = self.config_read_obj.config_object
+        # falls ein UDB-Thread existiert
+        if self.udp_serverthread is not None:
+            self.udp_serverthread.set_new_config(self.config)
         ConfigFileObj.config_lock.acquire()
         #######################################################################
         # DEFAULT                                                             #

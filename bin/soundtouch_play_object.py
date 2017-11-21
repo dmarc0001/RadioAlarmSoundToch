@@ -267,13 +267,14 @@ class SoundtouchPlayObject(Thread):
         """
         self.curr_vol = _from
         __dest_vol = _to
+        # TODO: konstante zeit, dafür die Schritte nd die Dauer errechnen
         while self.is_playing and (self.curr_vol < __dest_vol) and self.alert_volume_incr:
             self.log.debug("volume: {}...".format(self.curr_vol))
             self.curr_vol = self.curr_vol + 2
             self.master_device.set_volume(self.curr_vol)
             for slave in self.slave_devices:
                 slave.set_volume(self.curr_vol)
-            sleep(.90)
+            sleep(1.20)
         # ende
 
     def __fade_out(self, _from, _to):

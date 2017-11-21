@@ -1,0 +1,10 @@
+*.bashrc
+.profile
+.recycle/
+.idea/
+.vscode/
+__pychache__/
+bin/__pychache__/
+.bash_history
+*.viminfo
+*.selected_editor

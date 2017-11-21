@@ -351,6 +351,7 @@ function index_recCheckindex_UpdateFunc(data)
       }
       else
       {
+        console.debug("config id recived (" + value + ")");
         if( configId != value )
         {
           //
