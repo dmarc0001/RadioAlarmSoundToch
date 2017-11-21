@@ -81,9 +81,6 @@ class ConfigFileObj:
             del self.config[section]
         for section in new_config:
             self.config[section] = new_config[section]
-        v_items = dict()
-        v_items['version'] = int(time() * 100.0)
-        self.config['version'] = v_items
         ConfigFileObj.config_lock.release()
         return self.config
 
@@ -199,7 +196,7 @@ class ConfigFileObj:
                 self.log.info("HASH orig: {}".format(self.dict_hash))
             if self.dict_hash == curr_hash:
                 if self.log is not None:
-                    self.log.debug("write_config_file...OK (not requiered)")
+                    self.log.debug("write_config_file...OK (not required)")
                 return True
         #
         # configparser erzeugen zum schreiben in die datei
@@ -208,9 +205,6 @@ class ConfigFileObj:
         # das config-objekct wieder in ein parserobj konvertieren
         ConfigFileObj.config_lock.acquire()
         for section in sorted(self.config):
-            if section == 'version':
-                # version auslassen, nicht speichern
-                continue
             if self.log is not None:
                 self.log.debug("create section [{}]...".format(section))
             else:
@@ -292,12 +286,18 @@ class ConfigFileObj:
             else:
                 print("write to {} ...permission error! Check file/directory permisions.".format(_new_file))
         #
+        # hash und version setzen
+        #
         self.dict_hash = self.__get_hashstr(self.config)
         return True
 
     @property
     def config_object(self):
         return self.config
+
+    @property
+    def config_hash(self):
+        return self.dict_hash
 
 
 def main():
