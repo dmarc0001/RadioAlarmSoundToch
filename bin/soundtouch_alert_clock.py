@@ -10,6 +10,7 @@ import re
 from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
 from udp_server_thread import RadioCommandServer
+from libsoundtouch import discover_devices
 from soundtouch_play_object import SoundtouchPlayObject
 from threading import Lock, Thread
 
@@ -106,7 +107,6 @@ class SoundTouchAlertClock:
         self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         # die aktuelle zeit der letzten änderung merken
         self.config_last_modify_time = self.config_modify_time
-        self.alert_in_progress = None
         #
         while self.is_running:
             #
@@ -134,22 +134,16 @@ class SoundTouchAlertClock:
             # ist irgend ein Alarm bereits am Ackern?
             #
             if self.alert_in_progress is not None:
-                if not self.alert_in_progress.is_alive():
-                    # ist er schon hinüber, entferne ihn
-                    self.log.debug("remove stopped play thread...")
-                    del self.alert_in_progress
-                    self.alert_in_progress = None
-                    continue
-                if int(time()) > (self.alert_in_progress.time_to_off + 30):
-                    # immer noch vorhanden, dann töte ind beseitige das Teil
-                    if self.alert_in_progress.is_alive():
-                        self.log.info("kill play thread and join him while ending...")
-                        self.alert_in_progress.device_is_playing = False
-                        self.alert_in_progress.join()
-                        self.log.debug("kill play thread ... OK, killed")
-                    del self.alert_in_progress
-                    self.alert_in_progress = None
-                    continue
+                self.alerts_lock.acquire()
+                for c_alert in self.alerts:
+                    if c_alert.alert_working_timestamp > 0:
+                        # der alarm ist in arbeit, schätze mal die Dauer ab
+                        if c_alert.alert_working_timestamp + c_alert.alert_duration_secounds > int(time()):
+                            # alarm sollte vorbei sein, stelle den wieder so her wie er soll
+                            self.log.debug("alert {} is off, set markers to off!".format(c_alert.alert_note))
+                            c_alert.alert_working_timestamp = 0
+                            self.alert_in_progress = None
+                self.alerts_lock.release()
             #
             # jetzt schauen ob da was zu tun ist
             #
@@ -184,17 +178,20 @@ class SoundTouchAlertClock:
                         #
                         if c_alert.alert_working_timestamp > 0:
                             self.log.warning("this alert is working... not make an new alert this time")
+                            self.alert_in_progress = int(time())
                             continue
                         # erzeuge einen Weckerthread
-                        self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
+                        play_alert_thread = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
                         # markiere JETZT als Startzeitpunkt
                         c_alert.alert_working_timestamp = int(time())
-                        c_alert.alert_thread = self.alert_in_progress
-                        self.alert_in_progress.start()
+                        c_alert.alert_thread = play_alert_thread
+                        play_alert_thread.start()
+                        self.alert_in_progress = int(time())
                 self.alerts_lock.release()
             else:
+                # TODO: markierung prüfen, vorher setzten
                 # ein Alarm läuft, prüfe ob er beendet ist
-                # self.log.debug("alert is working...")
+                self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?
