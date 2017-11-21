@@ -24,7 +24,7 @@ var ignoreTrigger = false;
 var timerId = null;
 var configId = 0;
 var editDate = null;
-var waitTrysWhileUpdate = 8;
+var waitTrysWhileUpdate = 15;
 
 //
 // jQuery Mobile: wenn PAGE geändert ist, ausführen...
@@ -119,7 +119,7 @@ function index_initIndexPage()
   configId = 0;
   console.log("init index page...");
   console.debug("reread alert status via timer ...");
-  util_sleep(1300);
+  setTimeout(index_timerFunc, 1300);
   index_timerFunc();
   console.debug("reread alert status via timer ...OK");
 
@@ -225,12 +225,12 @@ function index_switchOnOffAlert(switch_to)
   // JSON URL aufrufen
   //
   $.getJSON(
-    alert_status,           /* die URL */
-    requestData,            /* die GET Parameter */
-    index_setStatusDataFunc       /* die "success" Funktion */
+    alert_status,                                          // die URL
+    requestData,                                           // die GET Parameter 
+    index_setStatusDataFunc                                // die "success" Funktion
   );
   // nochmal sicherstellen dass es geklappt hat
-  setTimeout(index_timerFunc, 500);
+  setTimeout(index_timerFunc, 800);
   console.debug("Switch Alert to " + switch_to + "...OK");
 }
 
@@ -269,9 +269,9 @@ function index_switchAlert()
     // JSON URL aufrufen
     //
     $.getJSON(
-      alert_status,           /* die URL */
-      requestData,          /* die GET Parameter */
-      index_setStatusDataFunc     /* die "success" Funktion */
+      alert_status,                                        // die URL
+      requestData,                                         // die GET Parameter
+      index_setStatusDataFunc                              // die "success" Funktion
     );
   }  
 }
@@ -301,7 +301,7 @@ function index_timerFunc()
   //
   while( timerIsRunning && trys > 0 )
   {
-    trys = trys -1;
+    trys = trys - 1;
     util_sleep(100);
   }
   if (timerIsRunning )
@@ -318,9 +318,9 @@ function index_timerFunc()
   // JSON URL aufrufen
   //
   $.getJSON(
-    alert_status,           /* die URL */
-    requestData,            /* die GET Parameter */
-    index_recCheckindex_UpdateFunc      /* die "success" Funktion */
+    alert_status,                                          // die URL
+    requestData,                                           // die GET Parameter 
+    index_recCheckindex_UpdateFunc                         // die "success" Funktion
   );
   timerIsRunning = false;
   console.debug("run index_timerFunc() to reload config...OK");
@@ -336,6 +336,7 @@ function index_recCheckindex_UpdateFunc(data)
   // bei diesem response ist die Verschachtelung der Objekte 2 Ebenen
   // Ebene 1 == key: section/alert, value: Objekt mit Werteparen
   // Ebene 2 == key: Wertename: value: Wert
+  // Hier sollte das version: xxxxxxx sein
   //
   console.debug("recived data from config version request...");
   //
@@ -359,8 +360,8 @@ function index_recCheckindex_UpdateFunc(data)
           // TODO: Komplett neuladen oder update?
           //
           console.log("new config id recived (" + value + "). Update GUI...");
-          configId = value;
           index_updateFunc();
+          configId = value;
         }
       }
     }
@@ -380,7 +381,7 @@ function index_updateFunc()
   //
   while( timerIsRunning && trys > 0 )
   {
-    trys = trys -1;
+    trys = trys - 1;
     util_sleep(100);
   }
   if (timerIsRunning)
@@ -397,9 +398,9 @@ function index_updateFunc()
   // JSON URL aufrufen
   //
   $.getJSON(
-    alert_status,           /* die URL */
-    requestData,            /* die GET Parameter */
-    index_recStatusDataFunc       /* die "success" Funktion */
+    alert_status,                                          // die URL 
+    requestData,                                           // die GET Parameter
+    index_recStatusDataFunc                                // die "success" Funktion 
   );
   timerIsRunning = false;
 }
@@ -453,10 +454,15 @@ function index_recStatusDataFunc(data)
 
 //
 // erkenne, ob sich Anzahl oder Namen der Alarme verändert haben
+// return true == VERÄNDERT
 //
 function index_hasAlertsCountChanged( data )
 {
-  _retValue = false;
+  var _retValue = false;
+  var alert_count = $('input:checkbox[id*=alert-]').length;
+  var dom_alert_count = 0;
+  console.debug("check alerts count has changed: alert number in DOM: <" + alert_count + ">");
+  //
   $.each(data,
     // anonyme Funktion für jedes Paar value_name, value des Objektes "data" via "each" aufgerufen
     function (value_name, value)
@@ -494,9 +500,20 @@ function index_hasAlertsCountChanged( data )
           _retValue = true;
           return;
         }
+        // Mitzählen, wie viele Alarme...
+        dom_alert_count += 1;
       }
     }
   );
+  //
+  // hat sich die Anzahl verändert?
+  //
+  if( dom_alert_count != alert_count )
+  {
+    console.info("count of alerts has changed!");
+    // auf jeden Fall verändert
+    return( true );
+  }
   return(_retValue);
 }
 
