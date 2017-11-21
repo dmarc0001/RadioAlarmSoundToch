@@ -5,16 +5,11 @@ import logging
 import logging.handlers
 import signal
 import os
-from time import sleep, time
 import re
+from time import sleep, time
 from config_files_obj import ConfigFileObj
 from radio_alerts import RadioAlerts
-<<<<<<< HEAD
-from udp_server_thread import RadioCommandServer
-from libsoundtouch import discover_devices
-=======
 from radio_command_server import RadioCommandServer
->>>>>>> origin/develop/current
 from soundtouch_play_object import SoundtouchPlayObject
 from threading import Lock, Thread
 
