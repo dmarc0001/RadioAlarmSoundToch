@@ -5,7 +5,7 @@
 //
 // Reguläre Ausdrücke definieren
 //
-var regex_date  = /^\d{4}-\d{2}-\d{2}$/;
+var regex_date  = /^\d{2,4}[-\.]\d{2}[-\.]\d{2,4}$/;
 var regex_time  = /^\d{2}:\d{2}$/;
 var regex_sec   = /^(\d+)s$/i;
 var regex_min   = /^(\d+)m$/i;
@@ -352,16 +352,34 @@ function index_recCheckindex_UpdateFunc(data)
       }
       else
       {
-        console.debug("config id recived (" + value + ")");
-        if( configId != value )
+        if( value_name == "version" )
+        {
+          console.debug("config id recived (" + value + ")");
+          if( configId != value )
+          {
+            //
+            // Oh, da muss was gemacht werden, also komplettes update versuchen
+            // TODO: Komplett neuladen oder update?
+            //
+            console.log("new config id recived (" + value + "). Update GUI...");
+            index_updateFunc();
+            configId = value;
+          }
+        }
+        else if ( value_name == 'al_working' )
         {
           //
-          // Oh, da muss was gemacht werden, also komplettes update versuchen
-          // TODO: Komplett neuladen oder update?
+          // gibt an ob ein alarm gerade am arbeiten ist, und wenn ja, welcher
           //
-          console.log("new config id recived (" + value + "). Update GUI...");
-          index_updateFunc();
-          configId = value;
+          if( value == 'none' )
+          {
+            console.debug("none alert ist working...");
+          }
+          else
+          {
+            console.info("alert \"" + value + "\" is working!");
+            // TODO: Hintergrundfarbe des alarms setzten?
+          }
         }
       }
     }
@@ -572,6 +590,7 @@ function index_updateAlertTimeStamp(value_name, propertys)
   //
   // NOTFALL, nix zum eintragen
   //
+  console.warn("alert: " + value_name + ", alert date " +  propertys['date'] + ", alert days: " + propertys['days']);
   currAlertDateTitleElem.text('REPEAT:');
   currAlertDateElem.text('- ??? -');
 }
