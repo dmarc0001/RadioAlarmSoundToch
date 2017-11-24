@@ -46,6 +46,7 @@ class RadioCommandServer(Thread):
         self.is_running = False
         self.config_hash = dict()
         self.config_hash['version'] = self.__get_hashstr(self.config)
+        self.config_hash['al_working'] = 'none'
         # self.is_socket_usable = True
         self.log.debug("instantiate RadioCommandServer...")
 
@@ -177,9 +178,7 @@ class RadioCommandServer(Thread):
             #
             if 'config-id' in sitem:
                 # welche version der CONFIG liegt vor (Änderung???)
-                ConfigFileObj.config_lock.acquire()
                 response = json.dumps(self.config_hash).encode(encoding='utf-8')
-                ConfigFileObj.config_lock.release()
                 return response
             elif 'config' in sitem:
                 # Alarm und der Rest Konfiguration
@@ -395,6 +394,14 @@ class RadioCommandServer(Thread):
             finally:
                 self.log.debug("close udp socket...OK")
         return None
+
+    @property
+    def alert_working(self):
+        return self.config_hash['al_working']
+
+    @alert_working.setter
+    def alert_working(self, _alert):
+        self.config_hash['al_working'] = _alert
 
     @staticmethod
     def __get_hashstr(_config_object: dict):

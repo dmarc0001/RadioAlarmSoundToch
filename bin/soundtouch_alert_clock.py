@@ -107,6 +107,7 @@ class SoundTouchAlertClock:
         self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
         # die aktuelle zeit der letzten änderung merken
         self.config_last_modify_time = self.config_modify_time
+        self.udp_serverthread.alert_working = 'none'
         #
         while self.is_running:
             #
@@ -143,6 +144,7 @@ class SoundTouchAlertClock:
                             self.log.debug("alert {} is off, set markers to off!".format(c_alert.alert_note))
                             c_alert.alert_working_timestamp = 0
                             self.alert_in_progress = None
+                            self.udp_serverthread.alert_working = 'none'
                 self.alerts_lock.release()
             #
             # jetzt schauen ob da was zu tun ist
@@ -186,6 +188,7 @@ class SoundTouchAlertClock:
                         c_alert.alert_working_timestamp = int(time())
                         c_alert.alert_thread = play_alert_thread
                         play_alert_thread.start()
+                        self.udp_serverthread.alert_working = c_alert.alert_alert
                         self.alert_in_progress = int(time())
                 self.alerts_lock.release()
             else:
@@ -323,7 +326,7 @@ class SoundTouchAlertClock:
             # es ist ein alert...
             self.log.debug("create RadioAlerts {}...".format(section))
             ConfigFileObj.config_lock.release()
-            alert = RadioAlerts(self.log, self.config[section])
+            alert = RadioAlerts(self.log, self.config[section], section)
             ConfigFileObj.config_lock.acquire()
             self.alerts_lock.acquire()
             self.alerts.append(alert)
@@ -418,7 +421,7 @@ class SoundTouchAlertClock:
             # es ist ein alert...
             self.log.debug("create RadioAlerts {}...".format(section))
             ConfigFileObj.config_lock.release()
-            alert = RadioAlerts(self.log, self.config[section])
+            alert = RadioAlerts(self.log, self.config[section], section)
             ConfigFileObj.config_lock.acquire()
             self.alerts.append(alert)
             self.log.debug("create RadioAlerts {}...OK".format(section))

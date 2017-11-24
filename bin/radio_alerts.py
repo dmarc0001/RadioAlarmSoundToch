@@ -23,8 +23,9 @@ class RadioAlerts:
     regex_time = re.compile('^\d{2}:\d{2}')
     regex_wekkdays = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
 
-    def __init__(self, _log: logging.Logger, _config_section: dict):
+    def __init__(self, _log: logging.Logger, _config_section: dict, _alert: str):
         self.log = _log
+        self.al_alert = _alert
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
         self.al_working_timestamp = False # alarm spielt gerade
@@ -357,6 +358,9 @@ class RadioAlerts:
     def alert_time(self, _ti: str):
         self.__set_time_from_string(_ti )
 
+    @property
+    def alert_alert(self):
+        return self.al_alert
 
 def main():
     """Hauptprogramm"""
