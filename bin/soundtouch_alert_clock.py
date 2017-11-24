@@ -141,12 +141,14 @@ class SoundTouchAlertClock:
                     self.log.debug("remove stopped play thread...")
                     del self.alert_in_progress
                     self.alert_in_progress = None
+                    self.udp_serverthread.alert_working = 'none'
                     continue
                 if int(time()) > (self.alert_in_progress.time_to_off + 30):
                     # immer noch vorhanden, dann töte ind beseitige das Teil
                     if self.alert_in_progress.is_alive():
                         self.log.info("kill play thread and join him while ending...")
                         self.alert_in_progress.device_is_playing = False
+                        self.udp_serverthread.alert_working = 'none'
                         self.alert_in_progress.join()
                         self.log.debug("kill play thread ... OK, killed")
                     del self.alert_in_progress
@@ -192,6 +194,7 @@ class SoundTouchAlertClock:
                         # markiere JETZT als Startzeitpunkt
                         c_alert.alert_working_timestamp = int(time())
                         c_alert.alert_thread = self.alert_in_progress
+                        self.udp_serverthread.alert_working = c_alert.alert_alert
                         self.alert_in_progress.start()
                 self.alerts_lock.release()
             else:
