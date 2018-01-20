@@ -19,7 +19,9 @@ class RadioAlerts:
     regex_min = re.compile('^(\d+)m$', re.IGNORECASE)
     regex_std = re.compile('^(\d+)h$', re.IGNORECASE)
     regex_val = re.compile('^(\d+).*$', re.IGNORECASE)
-    regex_date = re.compile('^\d{4}-\d{2}-\d{2}$')
+    regex_date = re.compile('^\d{2,4}[-\.]\d{2}[-ß.]\d{2,4}$')
+    regex_date_de = re.compile('^\d{2}\.\d{2}\.\d{4}$')
+    regex_date_int = re.compile('^\d{4}-\d{2}-\d{2}$')
     regex_time = re.compile('^\d{2}:\d{2}')
     regex_wekkdays = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
 
@@ -28,7 +30,7 @@ class RadioAlerts:
         self.al_alert = _alert
         self.al_done = False  # Alarm abgearbeitet?
         self.al_prepairing = False  # Alarm wird bearbeitet
-        self.al_working_timestamp = False # alarm spielt gerade
+        self.al_working_timestamp = False  # alarm spielt gerade
         self.al_enabled = True
         self.al_weekdays = None
         self.al_volume = 0
@@ -77,47 +79,29 @@ class RadioAlerts:
             # es ist ein einmaliger Alarm an einem Datum
             # also keine Wochentage
             self.log.debug("RadioAlert: date is given {}".format(_date))
+            # deutsches Datumsformat?
             try:
-                adate = datetime.strptime(_date.strip(), '%Y-%m-%d')
-                self.al_date = adate.date()
-                self.al_weekdays = None
-                self.log.info("alert is once at {}".format(_date))
+                if RadioAlerts.regex_date_de.match(_date):
+                    adate = datetime.strptime(_date.strip(), '%d.%m.%Y')
+                # oder internationales Datumsformat?
+                elif RadioAlerts.regex_date_int.match(_date):
+                    adate = datetime.strptime(_date.strip(), '%Y-%m-%d')
+                else:
+                    adate = None
+                    self.log.warning("can not parse datestring {}".format(_date))
             except ValueError as err:
                 self.log.fatal("can not parse datestring {} - {}".format(_date, err))
                 raise Exception("can not parse datestring {}".format(_date))
+            if adate is not None:
+                self.al_date = adate.date()
+                self.al_weekdays = None
+                self.log.debug("alert is once at {}".format(_date))
+            else:
+                # versuche mal statt dessen Wochentage
+                self.__compute_weekdays(_days)
         else:
-            # Wochentage erst mal testen
-            # wochentage (mo,th,we,th,fr,sa,su) | dayly  oder _date is not None  dann ONCE
-            self.log.debug("RadioAlerts: compute al_weekdays (or everyday). given string: {}...".format(_days))
-            _weekdays = _days.split(',')
-            self.al_weekdays = []
-            # wochentage (mo,th,we,th,fr,sa,su) | daily | once
-            for day in _weekdays:
-                day = day.strip()
-                if day == 'daily':
-                    # taeglich. Alles löschen und neu initialisieren
-                    self.log.info("dayly alert detected!")
-                    self.al_weekdays.append(7)
-                    break
-                if re.match(RadioAlerts.regex_wekkdays, day):
-                    # Wochentag passt, zufügen
-                    if day == 'mo':
-                        self.al_weekdays.append(0)
-                    elif day == 'tu':
-                        self.al_weekdays.append(1)
-                    elif day == 'we':
-                        self.al_weekdays.append(2)
-                    elif day == 'th':
-                        self.al_weekdays.append(3)
-                    elif day == 'fr':
-                        self.al_weekdays.append(4)
-                    elif day == 'sa':
-                        self.al_weekdays.append(5)
-                    elif day == 'su':
-                        self.al_weekdays.append(6)
-                    else:
-                        continue
-                    self.log.debug("alert at {} detected.".format(day))
+            # versuche Wochentage
+            self.__compute_weekdays(_days)
         #
         # Zeit des Alarms, festes Format: "HH.MM"
         #
@@ -149,7 +133,7 @@ class RadioAlerts:
         """
         if self.al_date is not None:
             # ok, einmalige Sache, ist das Datum in der Zukunft?
-            if self.al_date < datetime.now().date():
+            if self.al_date == datetime.now().date():
                 # in der Zukunft, Abstand berechnen
                 # erzeuge Datum und Uhrzeit am heutigen Tag
                 dest_datetime = datetime.combine(self.al_date, self.al_time)
@@ -164,14 +148,17 @@ class RadioAlerts:
                     self.al_done = True
                 if min_sec_future < time_diff < max_sec_future:
                     # in max 60 Sekunden in der Zukunft
-                    self.log.debug("once event less than {} sec in the future...".format(max_sec_future))
+                    self.log.debug(
+                        "alert {}: once event less than {} sec in the future...".format(self.al_alert, max_sec_future))
+                    # Gib Differenz zur aktuellen Zeit zurück
                     return time_diff
-                else:
-                    return None
-                    # einmalig erst mal abgearbeitet
+            # einmalig erst mal abgearbeitet
+            return None
         # Kein Datum gegeben, könnte als täglich oder an bestimmten Tagen sein
         # dieser wochentag oder täglich?
         # 7 stehr hier für täglich
+        if self.al_weekdays is None:
+            return None
         curr_day_number = datetime.now().weekday()
         if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
             # jeden Tag oder dieser Wochentag, also guck mal wie die Differenz ist
@@ -197,6 +184,44 @@ class RadioAlerts:
         # weder einmalig noch wiederholung, dann ...und tschüss
         # self.log.debug("not an repeatable or an single alert, return with None...")
         return None
+
+    def __compute_weekdays(self, _days: str):
+        """
+        Finde Wochentage aus der Konfiguration
+        :return: NIX
+        """
+        # Wochentage erst mal testen
+        # wochentage (mo,th,we,th,fr,sa,su) | dayly  oder _date is not None  dann ONCE
+        self.log.debug("RadioAlerts: compute al_weekdays (or everyday). given string: {}...".format(_days))
+        _weekdays = _days.split(',')
+        self.al_weekdays = []
+        # wochentage (mo,th,we,th,fr,sa,su) | daily | once
+        for day in _weekdays:
+            day = day.strip()
+            if day == 'daily':
+                # taeglich. Alles löschen und neu initialisieren
+                self.log.info("dayly alert detected!")
+                self.al_weekdays.append(7)
+                break
+            if re.match(RadioAlerts.regex_wekkdays, day):
+                # Wochentag passt, zufügen
+                if day == 'mo':
+                    self.al_weekdays.append(0)
+                elif day == 'tu':
+                    self.al_weekdays.append(1)
+                elif day == 'we':
+                    self.al_weekdays.append(2)
+                elif day == 'th':
+                    self.al_weekdays.append(3)
+                elif day == 'fr':
+                    self.al_weekdays.append(4)
+                elif day == 'sa':
+                    self.al_weekdays.append(5)
+                elif day == 'su':
+                    self.al_weekdays.append(6)
+                else:
+                    continue
+                self.log.debug("alert at {} detected.".format(day))
 
     def __set_time_from_string(self, _ti: str):
         _time = _ti.strip()
@@ -243,7 +268,7 @@ class RadioAlerts:
 
     @property
     def alert_enabled(self):
-        return(self.al_enabled)
+        return (self.al_enabled)
 
     @alert_enabled.setter
     def alert_enabled(self, _en):
@@ -356,11 +381,12 @@ class RadioAlerts:
 
     @alert_time.setter
     def alert_time(self, _ti: str):
-        self.__set_time_from_string(_ti )
+        self.__set_time_from_string(_ti)
 
     @property
     def alert_alert(self):
         return self.al_alert
+
 
 def main():
     """Hauptprogramm"""
