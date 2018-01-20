@@ -95,7 +95,7 @@ class RadioAlerts:
             if adate is not None:
                 self.al_date = adate.date()
                 self.al_weekdays = None
-                self.log.info("alert is once at {}".format(_date))
+                self.log.debug("alert is once at {}".format(_date))
             else:
                 # versuche mal statt dessen Wochentage
                 self.__compute_weekdays(_days)
