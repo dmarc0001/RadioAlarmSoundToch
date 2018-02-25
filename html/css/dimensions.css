@@ -53,3 +53,15 @@ hr.alert-border
     float: none;
   } 
 }
+
+/*
+ Begrenzung der Breite auf 66em
+*/
+@media all and (min-width: 55em) 
+{
+  div.ui-content 
+  {  
+    margin: auto; width: 54.5em; 
+  }
+}
+

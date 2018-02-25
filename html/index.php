@@ -52,7 +52,7 @@
       # rein optisch, leerzeichen erzeugen für das debuggen übersichtlicher
       $insertCount = 10;
       # eröffne das Gitter (CSS-Grid)
-      printf( "\n%".$insertCount.'s<div class="ui-grid-b ui-responsive">' . "\n", " ");
+      printf( "\n%".$insertCount.'s<div class="ui-grid-a ui-responsive">' . "\n", " ");
       # weiter einrücken
       $insertCount += 2;
       #
@@ -151,20 +151,25 @@
           <!-- Neuen Wecker machen -->
           <div class="ui-grid-solo">
             <div class="ui-block-a">
-              <a href="al_edit.php?alert=new" role="button" id="make-new-alert" class="ui-shadow ui-btn ui-corner-all" data-transition="flip">NEUER Wecker</a>
+              <form>
+                <a href="al_edit.php?alert=new" role="button" id="make-new-alert" class="ui-shadow ui-btn ui-corner-all" data-transition="flip">NEUER Wecker</a>
+              </form>
             </div>
           </div>
-          <!-- alle Wecker auf AUS -->
-          <div class="ui-grid-solo">
+          <!-- alle Wecker -->
+          <div class="ui-grid-a ui-responsive">
+            <!-- alle Wecker AUS -->
             <div class="ui-block-a">
-              <input type="button" id="all-alerts-off" value="ALLE AUS" />
+              <form>
+                <input type="button" id="all-alerts-off" value="ALLE AUS" />
+              </form>
             </div>
-          </div>
-          <!-- schalte für alle ZU -->
-          <div class="ui-grid-solo">
-              <div class="ui-block-a">
+            <!-- alle Wecker AN -->
+            <div class="ui-block-b">
+              <form>
                 <input type="button" id="all-alerts-on" value="ALLE AN" />
-              </div>
+              </form>
+            </div>
           </div>
           <hr />
           <?php 

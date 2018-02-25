@@ -15,8 +15,8 @@
     <!-- datebox styles -->
     <link rel="stylesheet" href="lib/DateBox-4.2.3/css/jtsage-datebox.css" />
     <!-- jQuery Mobile (ja, die veraltete jQuery 1.10.2 muss da sein) -->
-    <script src="lib/jquery-1.10.2.js"></script>
-    <script src="lib/jquery.mobile-1.4.5.js"></script>
+    <script src="lib/jquery-1.11.1.min.js"></script>
+    <script src="lib/jquery.mobile-1.4.5.min.js"></script>
     <!-- datebox scripte -->
     <script src="lib/DateBox-4.2.3/js/jtsage-datebox.js"></script>
     <script src="lib/DateBox-4.2.3/js/jtsage-datebox.i18n.de.utf8.js"></script>
