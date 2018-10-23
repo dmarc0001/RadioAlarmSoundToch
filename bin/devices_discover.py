@@ -79,19 +79,23 @@ class SoundtouchDiscoverDevices:
     @staticmethod
     def __make_configitem(_dev: object):
         _item = SoundtouchDiscoverDevices.__make_default_item()
-        _item['name'] = _dev.config.name
-        _item['host'] = _dev.host
-        _item['port'] = _dev.port
-        _item['type'] = _dev.config.type
+        _item['name']   = _dev.config.name
+        _item['host']   = _dev.host
+        _item['port']   = _dev.port
+        _item['wsport'] = '8080'
+        _item['type']   = _dev.config.type
+        _item['id']     = _dev.config.device_id
         return _item
 
     @staticmethod
     def __make_default_item():
         _item = dict()
-        _item['name'] = 'unknown'
-        _item['host'] = '127.0.0.1'
-        _item['port'] = '8090'
-        _item['type'] = 'unknown'
+        _item['name']   = 'unknown'
+        _item['host']   = '127.0.0.1'
+        _item['port']   = '8090'
+        _item['wsport'] = '8080'
+        _item['type']   = 'unknown'
+        _item['id']     = 'unknown'
         return _item
 
     def __write_config(self, _devconfig: dict):
@@ -201,7 +205,6 @@ class SoundtouchDiscoverDevices:
 
 
 def main():
-    """Hauptprogramm"""
     """Hauptprogramm"""
     discover_obj = SoundtouchDiscoverDevices(config_file)
     discover_obj.discover()
