@@ -15,15 +15,16 @@ __version__ = '0.1'
 
 class RadioAlerts:
     DEFAULT_ALERT_DURATION = 60 * 60
-    regex_sec = re.compile('^(\d+)s$/', re.IGNORECASE)
-    regex_min = re.compile('^(\d+)m$', re.IGNORECASE)
-    regex_std = re.compile('^(\d+)h$', re.IGNORECASE)
-    regex_val = re.compile('^(\d+).*$', re.IGNORECASE)
-    regex_date = re.compile('^\d{2,4}[-\.]\d{2}[-ß.]\d{2,4}$')
-    regex_date_de = re.compile('^\d{2}\.\d{2}\.\d{4}$')
-    regex_date_int = re.compile('^\d{4}-\d{2}-\d{2}$')
-    regex_time = re.compile('^\d{2}:\d{2}')
-    regex_wekkdays = re.compile('mo|tu|we|th|fr|sa|su', re.IGNORECASE)
+    regex_sec = re.compile(r'^(\d+)s$/', re.IGNORECASE)
+    regex_min = re.compile(r'^(\d+)m$', re.IGNORECASE)
+    regex_std = re.compile(r'^(\d+)h$', re.IGNORECASE)
+    regex_val = re.compile(r'^(\d+).*$', re.IGNORECASE)
+    regex_date = re.compile(r'^\d{2,4}[-\.]\d{2}[-ß.]\d{2,4}$')
+    regex_date_de = re.compile(r'^\d{2}\.\d{2}\.\d{4}$')
+    regex_date_int = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    regex_time = re.compile(r'^\d{2}:\d{2}')
+    regex_wekkdays = re.compile(r'^mo|tu|we|th|fr|sa|su$', re.IGNORECASE)
+    regex_space = re.compile(r'\s+');
 
     def __init__(self, _log: logging.Logger, _config_section: dict, _alert: str):
         self.log = _log
@@ -192,8 +193,10 @@ class RadioAlerts:
         """
         # Wochentage erst mal testen
         # wochentage (mo,th,we,th,fr,sa,su) | dayly  oder _date is not None  dann ONCE
-        self.log.debug("RadioAlerts: compute al_weekdays (or everyday). given string: {}...".format(_days))
-        _weekdays = _days.split(',')
+        _days_fitted = RadioAlerts.regex_space.sub('', _days )
+        self.log.debug("RadioAlerts: compute al_weekdays (or everyday). given string: {}...".format(_days_fitted))
+        #_days.replace(" ", "")
+        _weekdays = _days_fitted.split(',')
         self.al_weekdays = []
         # wochentage (mo,th,we,th,fr,sa,su) | daily | once
         for day in _weekdays:

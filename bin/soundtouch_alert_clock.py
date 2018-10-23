@@ -122,9 +122,9 @@ class SoundTouchAlertClock:
                 self.config_last_modify_time = self.config_modify_time
                 sleep(1)
             #
-            # geräte neu finden?
+            # geräte neu finden? Nur wenn kein Alarm ackert
             #
-            if int(time()) > self.timestamp_to_scan_devices:
+            if int(time()) > self.timestamp_to_scan_devices and self.alert_in_progress is None:
                 # Liste zu alt, erneuere sie, Discovering findet im System separat statt (externer Prozess)
                 # setzte die zeit für das nächste mal...
                 self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
@@ -204,7 +204,7 @@ class SoundTouchAlertClock:
             #
             # und zuletzt: hat sich die Config Datei verändert?
             #
-            if int(time()) > self.next_config_check:
+            if int(time()) > self.next_config_check and self.alert_in_progress is None:
                 self.log.debug("interval for check for config changes reached, check modify time...")
                 # wann ist der nächste Check?
                 self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK

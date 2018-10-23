@@ -66,6 +66,7 @@ class ConfigFileObj:
                 c_items = ConfigFileObj.__make_default_config()
             else:
                 c_items = ConfigFileObj.__make_default_entrys()
+            # lese einträge...    
             for item in items:
                 name = item[0]
                 val = item[1]
