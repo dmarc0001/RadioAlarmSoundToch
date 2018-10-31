@@ -167,7 +167,7 @@ class SoundTouchAlertClock:
                 for c_alert in self.alerts:
                     # alarm enable?
                     if not c_alert.alert_enabled:
-                        # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
+                        self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
                         continue
                     # wiel lange / kein Alarm
                     time_to_alert = c_alert.sec_to_alert(5, 18)
@@ -199,7 +199,7 @@ class SoundTouchAlertClock:
                 self.alerts_lock.release()
             else:
                 # ein Alarm läuft, prüfe ob er beendet ist
-                # self.log.debug("alert is working...")
+                self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?
