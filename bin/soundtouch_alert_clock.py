@@ -121,6 +121,7 @@ class SoundTouchAlertClock:
                 self.__configure_objects()
                 self.config_last_modify_time = self.config_modify_time
                 sleep(1)
+                continue
             #
             # geräte neu finden? Nur wenn kein Alarm ackert
             #
@@ -132,6 +133,7 @@ class SoundTouchAlertClock:
                 self.discover_lock.acquire()
                 d_thread = Thread(target=self.__find_available_devices)
                 d_thread.start()
+                continue
             #
             # ist irgend ein Alarm bereits am Ackern?
             #
@@ -153,7 +155,8 @@ class SoundTouchAlertClock:
                         self.log.debug("kill play thread ... OK, killed")
                     del self.alert_in_progress
                     self.alert_in_progress = None
-                    continue
+                # auf jeden Fall schleife an den Anfang...
+                continue
             #
             # jetzt schauen ob da was zu tun ist
             #
@@ -170,7 +173,7 @@ class SoundTouchAlertClock:
                         # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
                         continue
                     # wiel lange / kein Alarm
-                    time_to_alert = c_alert.sec_to_alert(5, 18)
+                    time_to_alert = c_alert.sec_to_alert(8, 18)
                     if time_to_alert is not None and not c_alert.alert_prepeairing:
                         # der Alarm naht und ist noch nicht vorbereitet
                         # gib bescheid: wird vorbereitet
@@ -199,7 +202,7 @@ class SoundTouchAlertClock:
                 self.alerts_lock.release()
             else:
                 # ein Alarm läuft, prüfe ob er beendet ist
-                # self.log.debug("alert is working...")
+                self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?
