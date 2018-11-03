@@ -178,7 +178,7 @@ class RadioAlerts:
         else:
             # 0 ist erledigt (oben) kann also nur noch
             # NACH der Zeit sein...
-            time_diff = (now_datetime - dest_datetime).seconds
+            time_diff = 0 - (now_datetime - dest_datetime).seconds
         if time_diff is None:
             # schwerer Fehler!
             self.log.error("time diff computing was None == programm error! call developer!")
