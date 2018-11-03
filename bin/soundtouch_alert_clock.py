@@ -167,9 +167,10 @@ class SoundTouchAlertClock:
                 for c_alert in self.alerts:
                     # alarm enable?
                     if not c_alert.alert_enabled:
+                        # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
                         continue
                     # wiel lange / kein Alarm
-                    time_to_alert = c_alert.sec_to_alert(8, 18)
+                    time_to_alert = c_alert.sec_to_alert(5, 18)
                     if time_to_alert is not None and not c_alert.alert_prepeairing:
                         # der Alarm naht und ist noch nicht vorbereitet
                         # gib bescheid: wird vorbereitet
@@ -185,23 +186,20 @@ class SoundTouchAlertClock:
                             continue
                         # ok, geräte sind bereit
                         #
-                        self.log.debug("devices for alert ready...")
                         if c_alert.alert_working_timestamp > 0:
                             self.log.warning("this alert is working... not make an new alert this time")
                             continue
                         # erzeuge einen Weckerthread
-                        self.log.debug("create soundtouch play object...")
                         self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
                         # markiere JETZT als Startzeitpunkt
                         c_alert.alert_working_timestamp = int(time())
                         c_alert.alert_thread = self.alert_in_progress
                         self.udp_serverthread.alert_working = c_alert.alert_alert
-                        self.log.info("start alert play object...")
                         self.alert_in_progress.start()
                 self.alerts_lock.release()
             else:
                 # ein Alarm läuft, prüfe ob er beendet ist
-                self.log.debug("alert is working...")
+                # self.log.debug("alert is working...")
                 pass
             #
             # und zuletzt: hat sich die Config Datei verändert?

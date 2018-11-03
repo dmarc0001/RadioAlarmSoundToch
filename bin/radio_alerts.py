@@ -159,7 +159,6 @@ class RadioAlerts:
         # dieser wochentag oder täglich?
         # 7 stehr hier für täglich
         if self.al_weekdays is None:
-            self.log.warning("there is no weekday in alert definition {} (and no date...).DONE".format(self.al_alert))
             return None
         curr_day_number = datetime.now().weekday()
         if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
