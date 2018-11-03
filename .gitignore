@@ -4,6 +4,7 @@
 .idea/
 .vscode/
 __pychache__/
+html/lib/demos/
 bin/__pychache__/
 .bash_history
 *.viminfo

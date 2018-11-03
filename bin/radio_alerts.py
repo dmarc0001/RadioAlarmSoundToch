@@ -132,59 +132,72 @@ class RadioAlerts:
         :param: max_sec_future wie weit in die Zukunft maximal?
         :return: Anzahl Sekunden zum nächsten Alarm, falls der Abstand geringer ist als 60 Minuten, sonst None
         """
+        # belege die wichtigen Daten vor
+        dest_datetime = None
+        time_diff = None
+        #
+        now_datetime = datetime.now()
         if self.al_date is not None:
-            # ok, einmalige Sache, ist das Datum in der Zukunft?
-            if self.al_date == datetime.now().date():
-                # in der Zukunft, Abstand berechnen
+            # ok, einmalige Sache, ist das Datum HEUTE?
+            if self.al_date == now_datetime.date():
+                # ja, heute, ist das noch in der Zukunft
                 # erzeuge Datum und Uhrzeit am heutigen Tag
-                dest_datetime = datetime.combine(self.al_date, self.al_time)
-                # mache einen Timestamp daraus
-                dest_timestramp = int(dest_datetime.timestamp())
-                # und wie ist datum/zeit genau jetzt?
-                now_timestaqmp = int(time())
-                time_diff = dest_timestramp - now_timestaqmp
-                # ist der Alarm vergangenheit?
-                if time_diff < -600:
-                    # sorge dafür, dass das erledigt ist
-                    self.al_done = True
-                if min_sec_future < time_diff < max_sec_future:
-                    # in max 60 Sekunden in der Zukunft
-                    self.log.debug(
-                        "alert {}: once event less than {} sec in the future...".format(self.al_alert, max_sec_future))
-                    # Gib Differenz zur aktuellen Zeit zurück
-                    return time_diff
-            # einmalig erst mal abgearbeitet
-            return None
-        # Kein Datum gegeben, könnte als täglich oder an bestimmten Tagen sein
-        # dieser wochentag oder täglich?
-        # 7 stehr hier für täglich
-        if self.al_weekdays is None:
-            return None
-        curr_day_number = datetime.now().weekday()
-        if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
-            # jeden Tag oder dieser Wochentag, also guck mal wie die Differenz ist
-            # erzeuge die Uhrzeit am heutigen Tag
-            dest_datetime = datetime.combine(datetime.now().date(), self.al_time)
-            # mache einen Timestamp für den alarmzeitpunkt
-            dest_timestramp = int(dest_datetime.timestamp())
-            # und wie ist datum/zeit genau jetzt?
-            now_timestaqmp = int(time())
-            time_diff = dest_timestramp - now_timestaqmp
-            if -1800 < time_diff < -300 and not self.al_done:
-                # nach 5 minuten über der zeit als erledigt bezeichnen
-                self.al_done = True
-            if time_diff < -1800 and self.al_done:
-                # nach 30 Minuten wieder zulassen
-                self.al_done = False
-            if min_sec_future < time_diff < max_sec_future and not self.al_done:
-                # in max 60 Sekunden in der Zukunft, wenn noch nicht erledigt
-                self.log.debug("repeatable event less than {} sec in the future...".format(max_sec_future))
-                return time_diff
+                # Die Alarmzeit ist hiermit festgelegt
+                dest_datetime = datetime.combine(now_datetime.date(), self.al_time)
             else:
                 return None
-        # weder einmalig noch wiederholung, dann ...und tschüss
-        # self.log.debug("not an repeatable or an single alert, return with None...")
-        return None
+        else:
+            # Kein Datum gegeben, könnte als täglich oder an bestimmten Tagen sein
+            # dieser wochentag oder täglich?
+            # 7 stehr hier für täglich
+            if self.al_weekdays is None:
+                # weder Datum noch Wochentag ==> Fetter Fehler
+                self.log.error("alert {} has not an date and not an weekday! ABORT".format(self.al_alert))
+                return None
+            # welcher Wochentag ist heute?
+            curr_day_number = now_datetime.weekday()
+            if 7 in self.al_weekdays or curr_day_number in self.al_weekdays:
+                # jeden Tag oder dieser Wochentag ist ein Treffer, also könnte es Alarm geben
+                dest_datetime = datetime.combine(now_datetime.date(), self.al_time)
+            else:
+                return None
+        #
+        # an dieser Stelle sollte ein eindeutiger Alarmzeitpunkt feststehen
+        # d.h dest_datetime sollte erzeugt sein
+        #
+        if dest_datetime is None:
+            # das ist ein schwerer Fehler
+            self.log.error("datetime computing was None == programm error! call developer!")
+            return None
+        if now_datetime == dest_datetime:
+            # genau jetzt
+            return 0
+        if now_datetime < dest_datetime:
+            # noch VOR der Zeit
+            time_diff = (dest_datetime - now_datetime).seconds
+        else:
+            # 0 ist erledigt (oben) kann also nur noch
+            # NACH der Zeit sein...
+            time_diff = 0 - (now_datetime - dest_datetime).seconds
+        if time_diff is None:
+            # schwerer Fehler!
+            self.log.error("time diff computing was None == programm error! call developer!")
+            return None
+        #
+        # mal sehen, wie gross die Diferenz ist
+        #
+        if -1800 < time_diff < -300 and not self.al_done:
+            # nach 5 minuten über der zeit als erledigt bezeichnen
+            self.al_done = True
+        if time_diff < -1800 and self.al_done:
+            # nach 30 Minuten wieder zulassen
+            self.al_done = False
+        if min_sec_future < time_diff < max_sec_future and not self.al_done:
+            # in max 60 Sekunden in der Zukunft, wenn noch nicht erledigt
+            self.log.debug("alert event less than {} sec in the future...".format(max_sec_future))
+            return time_diff
+        else:
+            return None
 
     def __compute_weekdays(self, _days: str):
         """
@@ -195,12 +208,11 @@ class RadioAlerts:
         # wochentage (mo,th,we,th,fr,sa,su) | dayly  oder _date is not None  dann ONCE
         _days_fitted = RadioAlerts.regex_space.sub('', _days )
         self.log.debug("RadioAlerts: compute al_weekdays (or everyday). given string: {}...".format(_days_fitted))
-        #_days.replace(" ", "")
         _weekdays = _days_fitted.split(',')
         self.al_weekdays = []
         # wochentage (mo,th,we,th,fr,sa,su) | daily | once
         for day in _weekdays:
-            day = day.strip()
+            day = day.strip() # eigentlich redundant, da oben alle spaces gekillt wurden
             if day == 'daily':
                 # taeglich. Alles löschen und neu initialisieren
                 self.log.info("dayly alert detected!")
