@@ -43,10 +43,8 @@ class SoundTouchAlertClock:
     DEFAULT_LOGFILE = "alert_clock.log"
     DEFAULT_LOGLEVEL = logging.DEBUG
     DEFAULT_CONFIGCHECK = 20
-    DEFAULT_TIME_TO_FIND_DEVICES = 1200
+    DEFAULT_TIME_TO_FIND_DEVICES = 9000
     REGEX_ALERT = re.compile(r'^alert-\d{2}$')
-    devices_lock = Lock()
-    discover_lock = Lock()
 
     def __init__(self, _config_file: str):
         """
@@ -56,6 +54,8 @@ class SoundTouchAlertClock:
         #
         # voreinstellungen initialisieren
         #
+        self.devices_lock = Lock()
+        self.discover_lock = Lock()
         self.log = None
         self.config_file = _config_file
         self.config_read_obj = None
@@ -208,7 +208,7 @@ class SoundTouchAlertClock:
             # und zuletzt: hat sich die Config Datei verändert?
             #
             if int(time()) > self.next_config_check and self.alert_in_progress is None:
-                self.log.debug("interval for check for config changes reached, check modify time...")
+                # self.log.debug("interval for check for config changes reached, check modify time...")
                 # wann ist der nächste Check?
                 self.next_config_check = int(time()) + SoundTouchAlertClock.DEFAULT_CONFIGCHECK
                 # erfrage die Zeit der letzten Änderung der Konfigurationsdatei
