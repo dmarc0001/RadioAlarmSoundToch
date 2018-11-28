@@ -130,7 +130,6 @@ class SoundTouchAlertClock:
                 # setzte die zeit für das nächste mal...
                 self.timestamp_to_scan_devices = int(time()) + SoundTouchAlertClock.DEFAULT_TIME_TO_FIND_DEVICES
                 # der lock soll von der Threadfunktion selber gelöst werden
-                self.discover_lock.acquire()
                 d_thread = Thread(target=self.__find_available_devices)
                 d_thread.start()
                 continue
@@ -249,6 +248,8 @@ class SoundTouchAlertClock:
         :return: Anzahl gefundener Geräte
         """
         try:
+            if not self.discover_lock.acquire(timeout=5.0):
+                return
             self.log.info("start thread for search available soundtouch devices...")
             #
             # finde Geräte im Netzwerk
@@ -257,14 +258,14 @@ class SoundTouchAlertClock:
             #
             # gibt es das config objekt (sollte es schon...)
             if self.config_read_obj is None:
-                # neui anlegen
+            # neui anlegen
                 self.config_read_obj = ConfigFileObj(self.log, self.config_file)
             # lese die Daten...
             _available_dev = self.config_read_obj.read_avail_devices()
-            SoundTouchAlertClock.devices_lock.acquire()
+            self.devices_lock.acquire()
             self.available_devices.clear()
             self.available_devices = _available_dev.copy()
-            SoundTouchAlertClock.devices_lock.release()
+            self.devices_lock.release()
             self.log.info("start thread for search available soundtouch devices ends with {} found devices".format(
                 len(self.available_devices)))
         finally:
@@ -275,9 +276,9 @@ class SoundTouchAlertClock:
         Gib kopie einer Liste mit verfügbaten Geräte zurück, sofern vorhanden
         :return:
         """
-        SoundTouchAlertClock.devices_lock.acquire()
+        self.devices_lock.acquire()
         _cp_list = self.available_devices.copy()
-        SoundTouchAlertClock.devices_lock.release()
+        self.devices_lock.release()
         return _cp_list
 
     def __exist_device_in_network(self, _name_to_find: str):
@@ -290,7 +291,7 @@ class SoundTouchAlertClock:
         # Pattern für Vergleich compilieren
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
-        SoundTouchAlertClock.devices_lock.acquire()
+        self.devices_lock.acquire()
         for devname, device in self.available_devices.items():
             self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
                                                                                                   device['name'],
@@ -301,7 +302,7 @@ class SoundTouchAlertClock:
                 SoundTouchAlertClock.devices_lock.release()
                 return device
         self.log.debug("destination device NOT found!")
-        SoundTouchAlertClock.devices_lock.release()
+        self.devices_lock.release()
         return None
 
     def __on_config_change(self, _timestamp: int):
