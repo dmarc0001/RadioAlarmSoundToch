@@ -170,7 +170,6 @@ class SoundTouchAlertClock:
                         # alarm enable?
                         if not c_alert.alert_enabled:
                             # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
-                            SoundTouchAlertClock.ALERTS_LOCK.release()
                             continue
                         # schaue ob ein alarm in X bis Y losgehen soll
                         time_to_alert = c_alert.sec_to_alert(0, 18)
@@ -186,13 +185,11 @@ class SoundTouchAlertClock:
                                 self.log.fatal("no devices for playing alert found! Alert abort")
                                 c_alert.alert_prepeairing = False
                                 c_alert.alert_done = True
-                                SoundTouchAlertClock.ALERTS_LOCK.release()
                                 continue
                             # ok, geräte sind bereit
                             #
                             if c_alert.alert_working_timestamp > 0:
                                 self.log.warning("this alert is working... not make an new alert this time")
-                                SoundTouchAlertClock.ALERTS_LOCK.release()
                                 continue
                             # erzeuge einen Weckerthread
                             self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
@@ -342,21 +339,21 @@ class SoundTouchAlertClock:
         self.alerts.clear()
         SoundTouchAlertClock.ALERTS_LOCK.release()
         # und nun neu einlesen
-        if ConfigFileObj.config_lock.acquire(timeout=1.0):
+        if ConfigFileObj.CONFIG_LOCK.acquire(timeout=1.0):
             for section in self.config:
                 # lies nur die alert-xx Einträge
                 if not SoundTouchAlertClock.REGEX_ALERT.match(section):
                     continue
                 # es ist ein alert...
                 self.log.debug("create RadioAlerts {}...".format(section))
-                ConfigFileObj.config_lock.release()
+                ConfigFileObj.CONFIG_LOCK.release()
                 alert = RadioAlerts(self.log, self.config[section], section)
-                ConfigFileObj.config_lock.acquire()
+                ConfigFileObj.CONFIG_LOCK.acquire()
                 SoundTouchAlertClock.ALERTS_LOCK.acquire()
                 self.alerts.append(alert)
                 SoundTouchAlertClock.ALERTS_LOCK.release()
                 self.log.debug("create RadioAlerts {}...OK".format(section))
-            ConfigFileObj.config_lock.release()
+            ConfigFileObj.CONFIG_LOCK.release()
         else:
             self.log.warning("Can't lock ALERTS_LOCK! ()on config change)")
 
@@ -447,9 +444,9 @@ class SoundTouchAlertClock:
                 # es ist ein alert...
                 self.log.debug("create RadioAlerts {}...".format(section))
                 alert = RadioAlerts(self.log, self.config[section], section)
-                if ConfigFileObj.config_lock.acquire(timeout=1.0):
+                if ConfigFileObj.CONFIG_LOCK.acquire(timeout=1.0):
                     self.alerts.append(alert)
-                    ConfigFileObj.config_lock.release()
+                    ConfigFileObj.CONFIG_LOCK.release()
                 else:
                     self.log.warning("Can't lock CONFIG_LOCK (config alert objects)")
                 self.log.debug("create RadioAlerts {}...OK".format(section))

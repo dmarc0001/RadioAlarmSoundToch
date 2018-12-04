@@ -185,19 +185,19 @@ class RadioCommandServer(Thread):
                 # bei all geht es schnell
                 response = None
                 try:
-                    ConfigFileObj.config_lock.acquire()
+                    ConfigFileObj.CONFIG_LOCK.acquire()
                     response = json.dumps(self.config).encode(encoding='utf-8')
                 finally:
-                    ConfigFileObj.config_lock.release()
+                    ConfigFileObj.CONFIG_LOCK.release()
                     return response
             elif 'all' in sitem:
                 # bei all nur die alarme, nicht global
-                ConfigFileObj.config_lock.acquire()
+                ConfigFileObj.CONFIG_LOCK.acquire()
                 for section in self.config:
                     if re.match(match_pattern, section):
                         if self.config[section] is not None:
                             _answers[section] = self.config[section]
-                ConfigFileObj.config_lock.release()
+                ConfigFileObj.CONFIG_LOCK.release()
                 # Alle verfügbaren eingefügt
             elif 'devices' in sitem:
                 # alle verfügbaren Geräte finden und melden
@@ -235,7 +235,7 @@ class RadioCommandServer(Thread):
                 _answers["new"] = new_item
             elif re.match(match_pattern, sitem):
                 # passt in das Muster (alle "sonstigen" alarme)
-                ConfigFileObj.config_lock.acquire()
+                ConfigFileObj.CONFIG_LOCK.acquire()
                 try:
                     if self.config[sitem] is not None:
                         self.log.debug("add: {} to config" .format(sitem))
@@ -244,7 +244,7 @@ class RadioCommandServer(Thread):
                     self.log.error("unknown (new?) alert to ask: {}".format(sitem))
                     self.config_hash['version'] = self.__get_hashstr(self.config)
                 finally:
-                    ConfigFileObj.config_lock.release()
+                    ConfigFileObj.CONFIG_LOCK.release()
             else:
                 self.log.warning("get command not implemented or none alerts match request. Data: <{}>".format(sitem))
                 return json.dumps({'error': 'get command not implemented or none alerts match request'}).encode(
@@ -269,16 +269,16 @@ class RadioCommandServer(Thread):
                 # da ist ein NEUNER Alarm angekommen == NEW
                 self.log.debug("found NEW alert {} with set commands".format(alert_name))
                 _alert = ConfigFileObj.get_empty_configitem()
-                ConfigFileObj.config_lock.acquire()
+                ConfigFileObj.CONFIG_LOCK.acquire()
                 self.config[alert_name] = _alert
-                ConfigFileObj.config_lock.release()
+                ConfigFileObj.CONFIG_LOCK.release()
             else:
                 # EDIT Alarm
                 self.log.debug("found alert {} with set commands".format(alert_name))
             #
             # nun alle Eigenschaften durch
             #
-            ConfigFileObj.config_lock.acquire()
+            ConfigFileObj.CONFIG_LOCK.acquire()
             for set_command in sitem:
                 if set_command == 'alert':
                     continue
@@ -288,7 +288,7 @@ class RadioCommandServer(Thread):
                     self.config[alert_name][set_command] = " "
                 else:
                     self.config[alert_name][set_command] = sitem[set_command]
-            ConfigFileObj.config_lock.release()
+            ConfigFileObj.CONFIG_LOCK.release()
             # ende der kommandos per alarm
         # ende der alarme
         # es scheint alles geklappt zu haben
@@ -336,9 +336,9 @@ class RadioCommandServer(Thread):
             alert_name = sitem['alert']
             self.log.debug("found alert {} with DELETE command".format(alert_name))
             if alert_name in self.config:
-                ConfigFileObj.config_lock.acquire()
+                ConfigFileObj.CONFIG_LOCK.acquire()
                 del self.config[alert_name]
-                ConfigFileObj.config_lock.release()
+                ConfigFileObj.CONFIG_LOCK.release()
                 self.config_hash['version'] = self.__get_hashstr(self.config)
                 if self.on_config_change is not None:
                     self.on_config_change(int(time()))
@@ -356,11 +356,11 @@ class RadioCommandServer(Thread):
         :return:
         """
         # Guck mal ob das passt
-        ConfigFileObj.config_lock.acquire()
+        ConfigFileObj.CONFIG_LOCK.acquire()
         if int(self.config['global']['server_port']) < 1024:
             self.log.error("not an valid port configured, no udp server startet! Program end...")
             self.is_running = False
-            ConfigFileObj.config_lock.release()
+            ConfigFileObj.CONFIG_LOCK.release()
             return False
         else:
             self.log.debug("UDP server on addr: %s:%s" % (
@@ -374,10 +374,10 @@ class RadioCommandServer(Thread):
             except OSError as msg:
                 self.log.fatal("exception while socket binding: %s, ABORT!" % msg)
                 self.is_running = False
-                ConfigFileObj.config_lock.release()
+                ConfigFileObj.CONFIG_LOCK.release()
                 return False
             self.log.info("try to make udp server socket...OK")
-            ConfigFileObj.config_lock.release()
+            ConfigFileObj.CONFIG_LOCK.release()
             return True
             # fertig
 
