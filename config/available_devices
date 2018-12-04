@@ -1,32 +1,24 @@
 [Bad]
 name = Bad
+type = SoundTouch 10
+wsport = 8080
+host = 192.168.1.30
 id = F45EABFBCD9A
 port = 8090
-host = 192.168.1.30
-wsport = 8080
-type = SoundTouch 10
 
 [Schlafzimmer]
 name = Schlafzimmer
+type = SoundTouch 20
+wsport = 8080
+host = 192.168.1.49
 id = E8EB11B5E4BB
 port = 8090
-host = 192.168.1.49
-wsport = 8080
-type = SoundTouch 20
 
 [Soundbar]
 name = Soundbar
+type = SoundTouch 300
+wsport = 8080
+host = 192.168.1.34
 id = 506583E84397
 port = 8090
-host = 192.168.1.34
-wsport = 8080
-type = SoundTouch 300
-
-[Wintergarten]
-name = Wintergarten
-id = 38D2697C128E
-port = 8090
-host = 192.168.1.33
-wsport = 8080
-type = SoundTouch 20
 

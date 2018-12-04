@@ -18,7 +18,7 @@ config_file = '../config/alert.ini'
 class ConfigFileObj:
     enclosing_dquotes = re.compile(r"(^\"|\"$)")
     regex_global = re.compile(r'^global$', re.IGNORECASE)
-    config_lock = Lock()
+    CONFIG_LOCK = Lock()
 
     def __init__(self, _log: logging.Logger, _file_name: str):
         self.log = _log
@@ -76,13 +76,15 @@ class ConfigFileObj:
                     print("  [{}] => '{}' = '{}'".format(section, name, val))
                 c_items[name] = val
             new_config[section] = c_items
-        ConfigFileObj.config_lock.acquire()
-        seclist = list(self.config.keys())
-        for section in seclist:
-            del self.config[section]
-        for section in new_config:
-            self.config[section] = new_config[section]
-        ConfigFileObj.config_lock.release()
+        if ConfigFileObj.CONFIG_LOCK.acquire(timeout=1.0):
+            seclist = list(self.config.keys())
+            for section in seclist:
+                del self.config[section]
+            for section in new_config:
+                self.config[section] = new_config[section]
+            ConfigFileObj.CONFIG_LOCK.release()
+        else:
+            self.log.warning("Can't lock CONFIG_LOCK! (read configfile)")
         return self.config
 
     def read_avail_devices(self):
@@ -189,9 +191,11 @@ class ConfigFileObj:
         if self.log is not None:
             self.log.debug("called write_config_file...")
         if not _force:
-            ConfigFileObj.config_lock.acquire()
-            curr_hash = self.__get_hashstr(self.config)
-            ConfigFileObj.config_lock.release()
+            if ConfigFileObj.CONFIG_LOCK.acquire(timeout=1.0):
+                curr_hash = self.__get_hashstr(self.config)
+                ConfigFileObj.CONFIG_LOCK.release()
+            else:
+                self.log.warning("Can't lock CONFIG_LOCK! (write config file)")
             if self.log is not None:
                 self.log.info("HASH curr: {}".format(curr_hash))
                 self.log.info("HASH orig: {}".format(self.dict_hash))
@@ -204,20 +208,22 @@ class ConfigFileObj:
         #
         parser = ConfigParser()
         # das config-objekct wieder in ein parserobj konvertieren
-        ConfigFileObj.config_lock.acquire()
-        for section in sorted(self.config):
-            if self.log is not None:
-                self.log.debug("create section [{}]...".format(section))
-            else:
-                print("create section [{}]...".format(section))
-            # eliminiere None als Value
-            _tmp_section = self.config[section]
-            for key in _tmp_section.keys():
-                if _tmp_section[key] is None:
-                    _tmp_section[key] = " "
-            # Sektion einfügen
-            parser[section] = _tmp_section
-        ConfigFileObj.config_lock.release()
+        if ConfigFileObj.CONFIG_LOCK.acquire(timeout=2.0):
+            for section in sorted(self.config):
+                if self.log is not None:
+                    self.log.debug("create section [{}]...".format(section))
+                else:
+                    print("create section [{}]...".format(section))
+                # eliminiere None als Value
+                _tmp_section = self.config[section]
+                for key in _tmp_section.keys():
+                    if _tmp_section[key] is None:
+                        _tmp_section[key] = " "
+                # Sektion einfügen
+                parser[section] = _tmp_section
+            ConfigFileObj.CONFIG_LOCK.release()
+        else:
+            self.log.warning("Can't lock CONFIG_LOCK! (write config file)")
         #
         # eine neue Datei zum schreiben öffnen und schreiben
         #

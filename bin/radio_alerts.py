@@ -194,7 +194,7 @@ class RadioAlerts:
             self.al_done = False
         if min_sec_future < time_diff < max_sec_future and not self.al_done:
             # in max 60 Sekunden in der Zukunft, wenn noch nicht erledigt
-            self.log.debug("alert event less than {} sec in the future...".format(max_sec_future))
+            self.log.debug("alert event less than {} ({}) sec in the future...".format(max_sec_future,time_diff))
             return time_diff
         else:
             return None

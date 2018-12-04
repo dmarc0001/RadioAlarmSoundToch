@@ -113,7 +113,7 @@ class SoundTouchAlertClock:
         while self.is_running:
             #
             # ist die letzte Änderug der Konfigurationsdatei neuer als die
-            # hier gemerkte ÄÜnderungszeit?
+            # hier gemerkte Änderungszeit?
             #
             if self.config_last_modify_time > self.config_modify_time:
                 # Ok, da müsste was getan werden!
@@ -145,7 +145,7 @@ class SoundTouchAlertClock:
                     self.udp_serverthread.alert_working = 'none'
                     continue
                 if int(time()) > (self.alert_in_progress.time_to_off + 30):
-                    # immer noch vorhanden, dann töte ind beseitige das Teil
+                    # immer noch vorhanden, dann töte und beseitige das Teil
                     if self.alert_in_progress.is_alive():
                         self.log.info("kill play thread and join him while ending...")
                         self.alert_in_progress.device_is_playing = False
@@ -170,14 +170,15 @@ class SoundTouchAlertClock:
                         # alarm enable?
                         if not c_alert.alert_enabled:
                             # self.log.debug("alert {} is disabled. Continue...".format(c_alert.alert_note))
+                            SoundTouchAlertClock.ALERTS_LOCK.release()
                             continue
-                        # wiel lange / kein Alarm
-                        time_to_alert = c_alert.sec_to_alert(8, 18)
+                        # schaue ob ein alarm in X bis Y losgehen soll
+                        time_to_alert = c_alert.sec_to_alert(0, 18)
                         if time_to_alert is not None and not c_alert.alert_prepeairing:
                             # der Alarm naht und ist noch nicht vorbereitet
                             # gib bescheid: wird vorbereitet
                             c_alert.alert_prepeairing = True
-                            self.log.debug("alert in {} sec detected".format(time_to_alert))
+                            self.log.debug("alert in {} sec detected. process him...".format(time_to_alert))
                             # versuche eine Liste mit den Zielgeräten zu bekommen
                             alert_devices = self.__are_devices_available(c_alert.alert_devices)
                             if len(alert_devices) == 0:
@@ -185,11 +186,13 @@ class SoundTouchAlertClock:
                                 self.log.fatal("no devices for playing alert found! Alert abort")
                                 c_alert.alert_prepeairing = False
                                 c_alert.alert_done = True
+                                SoundTouchAlertClock.ALERTS_LOCK.release()
                                 continue
                             # ok, geräte sind bereit
                             #
                             if c_alert.alert_working_timestamp > 0:
                                 self.log.warning("this alert is working... not make an new alert this time")
+                                SoundTouchAlertClock.ALERTS_LOCK.release()
                                 continue
                             # erzeuge einen Weckerthread
                             self.alert_in_progress = SoundtouchPlayObject(self.log, self.__get_available_devices(), c_alert)
@@ -199,6 +202,8 @@ class SoundTouchAlertClock:
                             self.udp_serverthread.alert_working = c_alert.alert_alert
                             self.alert_in_progress.start()
                     SoundTouchAlertClock.ALERTS_LOCK.release()
+                else:
+                    self.log.crit("Can't lock ALERTS_LOCK! no checking alerts...") 
                 # ende if
             else:
                 # ein Alarm läuft, prüfe ob er beendet ist
@@ -249,6 +254,7 @@ class SoundTouchAlertClock:
         :return: Anzahl gefundener Geräte
         """
         if not SoundTouchAlertClock.DISCOVER_LOCK.acquire(timeout=2.5):
+            self.log.warning("CAn't lock DISCOVER_LOCK!")
             return
         try:
             self.log.info("start thread for search available soundtouch devices...")
@@ -263,10 +269,10 @@ class SoundTouchAlertClock:
                 self.config_read_obj = ConfigFileObj(self.log, self.config_file)
             # lese die Daten...
             _available_dev = self.config_read_obj.read_avail_devices()
-            SoundTouchAlertClock.DEVICE_LOCK.acquire()
-            self.available_devices.clear()
-            self.available_devices = _available_dev.copy()
-            SoundTouchAlertClock.DEVICE_LOCK.release()
+            if SoundTouchAlertClock.DEVICE_LOCK.acquire(timeout=1.0):
+              self.available_devices.clear()
+              self.available_devices = _available_dev.copy()
+              SoundTouchAlertClock.DEVICE_LOCK.release()
             self.log.info("start thread for search available soundtouch devices ends with {} found devices".format(
                 len(self.available_devices)))
         finally:
@@ -281,6 +287,8 @@ class SoundTouchAlertClock:
             _cp_list = self.available_devices.copy()
             SoundTouchAlertClock.DEVICE_LOCK.release()
             return _cp_list
+        else:
+            self.log.warnung("Can't lock DEVICE_LOCK! (get availible devices...)")
 
     def __exist_device_in_network(self, _name_to_find: str):
         """
@@ -292,18 +300,20 @@ class SoundTouchAlertClock:
         # Pattern für Vergleich compilieren
         match_pattern = re.compile('^' + _name_to_find + '$', re.IGNORECASE)
         # finde raus ob es das gerät gibt
-        SoundTouchAlertClock.DEVICE_LOCK.acquire()
-        for devname, device in self.available_devices.items():
-            self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
-                                                                                                  device['name'],
-                                                                                                  device['type'],
-                                                                                                  device['host']))
-            if re.match(match_pattern, devname):
-                self.log.debug("destination device found!")
-                SoundTouchAlertClock.DEVICE_LOCK.release()
-                return device
-        self.log.debug("destination device NOT found!")
-        SoundTouchAlertClock.DEVICE_LOCK.release()
+        if SoundTouchAlertClock.DEVICE_LOCK.acquire(timeout=1.0):
+            for devname, device in self.available_devices.items():
+                self.log.debug("exist device {} in discovered devices: {}, Type: {}, host: {}".format(_name_to_find,
+                                                                                                    device['name'],
+                                                                                                    device['type'],
+                                                                                                    device['host']))
+                if re.match(match_pattern, devname):
+                    self.log.debug("destination device found!")
+                    SoundTouchAlertClock.DEVICE_LOCK.release()
+                    return device
+            self.log.debug("destination device NOT found!")
+            SoundTouchAlertClock.DEVICE_LOCK.release()
+        else:
+            self.log.warning("Can't lock DECICE_LOCK! (esist devices in network)")
         return None
 
     def __on_config_change(self, _timestamp: int):
@@ -326,9 +336,12 @@ class SoundTouchAlertClock:
         # Alarme neu aus der configuration im RAM einlesen                    #
         #######################################################################
         if not SoundTouchAlertClock.ALERTS_LOCK.acquire(timeout=2.5):
+            self.log.warning("Can't lock ALERTS_LOCK! (on config change)")
             return
+        # alle alarme entfernen
         self.alerts.clear()
         SoundTouchAlertClock.ALERTS_LOCK.release()
+        # und nun neu einlesen
         if ConfigFileObj.config_lock.acquire(timeout=1.0):
             for section in self.config:
                 # lies nur die alert-xx Einträge
@@ -344,6 +357,8 @@ class SoundTouchAlertClock:
                 SoundTouchAlertClock.ALERTS_LOCK.release()
                 self.log.debug("create RadioAlerts {}...OK".format(section))
             ConfigFileObj.config_lock.release()
+        else:
+            self.log.warning("Can't lock ALERTS_LOCK! ()on config change)")
 
     def reload_conifg(self):
         """
@@ -379,7 +394,7 @@ class SoundTouchAlertClock:
         # falls ein UDB-Thread existiert
         if self.udp_serverthread is not None:
             self.udp_serverthread.set_new_config(self.config)
-        ConfigFileObj.config_lock.acquire()
+        #ConfigFileObj.CONFIG_LOCK.acquire()
         #######################################################################
         # DEFAULT                                                             #
         #######################################################################
@@ -431,13 +446,16 @@ class SoundTouchAlertClock:
                     continue
                 # es ist ein alert...
                 self.log.debug("create RadioAlerts {}...".format(section))
-                ConfigFileObj.config_lock.release()
                 alert = RadioAlerts(self.log, self.config[section], section)
-                ConfigFileObj.config_lock.acquire()
-                self.alerts.append(alert)
+                if ConfigFileObj.config_lock.acquire(timeout=1.0):
+                    self.alerts.append(alert)
+                    ConfigFileObj.config_lock.release()
+                else:
+                    self.log.warning("Can't lock CONFIG_LOCK (config alert objects)")
                 self.log.debug("create RadioAlerts {}...OK".format(section))
-            ConfigFileObj.config_lock.release()
             SoundTouchAlertClock.ALERTS_LOCK.release()
+        else:
+            self.log.warning("Can't lock ALERTS_LOCK! (config alert objects) ")
         # ENDE
 
     @staticmethod

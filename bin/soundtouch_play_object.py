@@ -38,9 +38,9 @@ class SoundtouchPlayObject(Thread):
         self.play_station = None
         self.zone_status = None
         self.__time_to_off = 0
-        self.callback_volume_lock = Lock()
-        self.status_listener_lock = Lock()
-        self.zone_listener_lock = Lock()
+        self.CALLBACK_VOLUME_LOCK = Lock()
+        self.STATUS_LISTENER_LOCK = Lock()
+        self.ZONE_LISTENER_LOCK = Lock()
         #
         self.log.debug("create object...")
         #
@@ -351,20 +351,22 @@ class SoundtouchPlayObject(Thread):
         :param zone_status:
         :return:
         """
-        self.zone_listener_lock.acquire()
-        if zone_status:
-            self.log.info(zone_status.master_id)
-            if zone_status.master_id != self.zone_status.master_id:
-                # ID verändert, thread ist alle
-                self.log.info("ZoneID is now {}".format(zone_status.master_id))
-                self.zone_status.master_id = zone_status.master_id
-                self.is_playing = False
-                self.is_switchoff = False
+        if self.ZONE_LISTENER_LOCK.acquire(timeout=1.0):
+            if zone_status:
+                self.log.info(zone_status.master_id)
+                if zone_status.master_id != self.zone_status.master_id:
+                    # ID verändert, thread ist alle
+                    self.log.info("ZoneID is now {}".format(zone_status.master_id))
+                    self.zone_status.master_id = zone_status.master_id
+                    self.is_playing = False
+                    self.is_switchoff = False
+            else:
+                self.log.info('not more an Zone')
+                # lösche slaves
+                self.slave_devices.clear()
+            self.ZONE_LISTENER_LOCK.release()
         else:
-            self.log.info('not more an Zone')
-            # lösche slaves
-            self.slave_devices.clear()
-        self.zone_listener_lock.release()
+            self.log.warning("Can't lock zone listener!(zone status listener)")
 
     def __volume_listener(self, volume):
         """
@@ -374,14 +376,16 @@ class SoundtouchPlayObject(Thread):
         :return: NIX
         """
         # ändert sich die Lautstärke ohne fading...
-        self.callback_volume_lock.acquire()
-        play_volume = volume.actual
-        self.log.debug("volume changed to: {}, alert current is {}".format(play_volume, self.curr_vol))
-        if play_volume != self.curr_vol and self.alert_volume_incr:
-            # ups, der user fingert daran rum
-            self.alert_volume_incr = False
-            self.log.warning("user has manual changed volume, switch fading off (for this alert only)...")
-        self.callback_volume_lock.release()
+        if self.CALLBACK_VOLUME_LOCK.acquire(timeout=1.0):
+            play_volume = volume.actual
+            self.log.debug("volume changed to: {}, alert current is {}".format(play_volume, self.curr_vol))
+            if play_volume != self.curr_vol and self.alert_volume_incr:
+                # ups, der user fingert daran rum
+                self.alert_volume_incr = False
+                self.log.warning("user has manual changed volume, switch fading off (for this alert only)...")
+            self.CALLBACK_VOLUME_LOCK.release()
+        else:
+            self.log.warning("Can't volume listener!(volume status listener)")
 
     def __status_listener(self, status):
         """
@@ -392,28 +396,30 @@ class SoundtouchPlayObject(Thread):
         """
         # self.log.info("status changed to: {}".format(status.source))
         # wenn der Status sich ändert (nach STANDBY)
-        self.status_listener_lock.acquire()
-        play_source = status.source
-        play_station = status.station_name
-        if play_source is not None:
-            # gibt es was zu berichten (STANDBY?)
-            if play_source is not None and SoundtouchPlayObject.re_standby.match(play_source):
-                # Gerät auf STANDBY, das war es dann
-                self.log.warning("device manual switched to STANDBY, stop thread...")
-                self.is_playing = False
-                self.status_listener_lock.release()
-                return
-            # ist station und source vorhanden?
-            if play_station is not None:
-                if self.play_source != play_source or self.play_station != play_station:
-                    # da wurde rumgemacht....
-                    self.log.info(
-                        "station name changed to: {} / source changed to {}".format(status.station_name, play_source))
-                    # da wurde dran rumgemacht, Thread beenden, User das Feld überlassen
-                    self.log.warning("device manual switched to {}, stop thread...".format(play_station))
+        if self.STATUS_LISTENER_LOCK.acquire(timeout=1.0):
+            play_source = status.source
+            play_station = status.station_name
+            if play_source is not None:
+                # gibt es was zu berichten (STANDBY?)
+                if play_source is not None and SoundtouchPlayObject.re_standby.match(play_source):
+                    # Gerät auf STANDBY, das war es dann
+                    self.log.warning("device manual switched to STANDBY, stop thread...")
                     self.is_playing = False
-                    self.is_switchoff = False
-        self.status_listener_lock.release()
+                    self.STATUS_LISTENER_LOCK.release()
+                    return
+                # ist station und source vorhanden?
+                if play_station is not None:
+                    if self.play_source != play_source or self.play_station != play_station:
+                        # da wurde rumgemacht....
+                        self.log.info(
+                            "station name changed to: {} / source changed to {}".format(status.station_name, play_source))
+                        # da wurde dran rumgemacht, Thread beenden, User das Feld überlassen
+                        self.log.warning("device manual switched to {}, stop thread...".format(play_station))
+                        self.is_playing = False
+                        self.is_switchoff = False
+            self.STATUS_LISTENER_LOCK.release()
+        else:
+            self.log.warning("Can't lock status listener!(status listener)")
 
     @property
     def time_to_off(self):
